@@ -1,0 +1,39 @@
+metadata:
+  appname: "helloworld"
+role:
+  managed_policies: []
+  statements:
+    - sid: "ssmactions"
+      resources: ["*"]
+      actions: ["ssmmessages:CreateControlChannel", "ssmmessages:CreateDataChannel", "ssmmessages:OpenControlChannel", "ssmmessages:OpenDataChannel", "secretsmanager:*"]
+      effect: "Allow"
+execution_role:
+  managed_policies: ["service-role/AmazonECSTaskExecutionRolePolicy", "AmazonEC2ContainerRegistryReadOnly"]
+  statements:
+    - sid: "secretmanageractions"
+      resources: ["*"]
+      actions: ["secretsmanager:GetSecretValue"]
+      effect: "Allow"
+task_definition:
+  resources:
+    limits:
+      cpu: 2
+      memory: 4096
+  containers:
+    - name: helloworld
+      image: docker.io/library/debian
+      user: root
+      tty: true
+      command: "sleep infinity"
+      resources:
+        limits:
+          cpu: 1
+          memory: 2048
+      synchronize:
+        root: "."
+        exclude:
+          - ".git"
+      port_forward:
+        - "8000:8000"
+      env: []
+      secrets: []
