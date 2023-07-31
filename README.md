@@ -2,6 +2,7 @@
 
 EasyECS is an innovative container deployment tool designed to streamline the process of launching containers within the Amazon Web Services (AWS) Elastic Container Service (ECS) Fargate. With its user-friendly interface and automated workflows, EasyECS empowers developers to efficiently manage containerized applications on the AWS cloud platform. This tool is similar to what skaffold can be in Kubernetes environment.
 
+
 ## Demonstration
 
 ![Demonstration](https://github.com/Komalis/easyecs/blob/main/easyecs.gif)
