@@ -318,7 +318,7 @@ def click_dev(ctx, no_docker_build, force_redeployment):
     ),
 )
 @click.pass_context
-def click_delete(ctx):
+def click_delete(ctx, force_redeployment):
     action_delete()
 
 
