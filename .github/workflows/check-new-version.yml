@@ -1,0 +1,29 @@
+name: check_new_version
+
+on:
+  push:
+    branches-ignore:
+      - 'main'
+  pull_request:
+    types: [opened, reopened]
+    branches-ignore:
+      - 'main'
+
+jobs:
+  tag_repo:
+    name: Check if VERSION has been modified
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+      - name: Check if VERSION has been modified
+        run: |
+          pip install toml
+          git fetch origin main
+          git show origin/main:pyproject.toml > pyproject.main.toml
+          OLD_VERSION=$(python -c 'import toml; print(toml.load("pyproject.main.toml")["tool"]["poetry"]["version"])')
+          NEW_VERSION=$(python -c 'import toml; print(toml.load("pyproject.toml")["tool"]["poetry"]["version"])')
+          if [ $OLD_VERSION == $NEW_VERSION ]; then echo "You need to update the version !"; exit -1; fi
+          exit 0

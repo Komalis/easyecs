@@ -21,10 +21,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Build and publish to pypi
-      uses: JRubics/poetry-publish@v1.17
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Publish to pypi
+      uses: coveooss/pypi-publish-with-poetry@v0.1.3
       with:
-        python_version: "3.8"
+        project-name: EasyECS
+        disable-repository-tags: true
         pypi-token: ${{ secrets.PYPI_API_TOKEN }}
-        repository_name: "EasyECS"
-        repository_url: "https://github.com/Komalis/easyecs"
