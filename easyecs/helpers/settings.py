@@ -11,12 +11,13 @@ from easyecs.cloudformation.fetch import (
     fetch_vpc_id,
 )
 from easyecs.helpers.color import Color
+from easyecs.model.ecs import EcsFileModel
 
 
-def read_ecs_file():
+def read_ecs_file() -> EcsFileModel:
     with open("./ecs.yml") as f:
         data = yaml.load(f, Loader=SafeLoader)
-    return data
+    return EcsFileModel(**data)
 
 
 def load_settings(aws_account):
