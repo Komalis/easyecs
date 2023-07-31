@@ -1,0 +1,23 @@
+name: Dry run poetry publish
+
+on:
+  push:
+    branches:
+      - '*'
+      - '!main'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Publish to pypi
+      uses: coveooss/pypi-publish-with-poetry@v0.1.3
+      with:
+        project-name: EasyECS
+        pypi-token: ${{ secrets.PYPI_API_TOKEN }}
+        dry-run: true
