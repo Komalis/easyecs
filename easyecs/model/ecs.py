@@ -37,7 +37,7 @@ class EcsFileSynchronizeModel(BaseModel):
 class EcsFileBuildModel(BaseModel):
     dockerfile: str = "Dockerfile"
     target: Optional[str] = None
-    args: List[Dict[str, str]] = []
+    args: Dict[str, str] = {}
 
 
 class EcsFileEnvModel(BaseModel):
