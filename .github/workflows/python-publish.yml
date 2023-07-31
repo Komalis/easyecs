@@ -25,7 +25,6 @@ jobs:
       uses: JRubics/poetry-publish@v1.17
       with:
         python_version: "3.8"
-        poetry_version: "1.5.1"
         pypi-token: ${{ secrets.PYPI_API_TOKEN }}
         repository_name: "EasyECS"
         repository_url: "https://github.com/Komalis/easyecs"
