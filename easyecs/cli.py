@@ -2,7 +2,6 @@
 
 import time
 import inotify.adapters
-import os
 import boto3
 import click
 from easyecs.cloudformation.template import create_template
@@ -42,8 +41,8 @@ def action_run(no_docker_build, force_redeployment):
     azs = cache_settings["azs"]
 
     ecs_manifest = read_ecs_file()
-    app_name = ecs_manifest["metadata"]["appname"]
-    user = ecs_manifest["metadata"].get("user", os.environ["USER"])
+    app_name = ecs_manifest.metadata.appname
+    user = ecs_manifest.metadata.user
     stack_name = f"{user}-{app_name}"
 
     verify_ecs_manifest(ecs_manifest)
@@ -130,8 +129,8 @@ def action_dev(no_docker_build, force_redeployment):
     azs = cache_settings["azs"]
 
     ecs_manifest = read_ecs_file()
-    app_name = ecs_manifest["metadata"]["appname"]
-    user = ecs_manifest["metadata"].get("user", os.environ["USER"])
+    app_name = ecs_manifest.metadata.appname
+    user = ecs_manifest.metadata.user
     stack_name = f"{user}-{app_name}"
 
     verify_ecs_manifest(ecs_manifest)
@@ -228,8 +227,8 @@ def action_dev(no_docker_build, force_redeployment):
 
 def action_delete():
     ecs_manifest = read_ecs_file()
-    app_name = ecs_manifest["metadata"]["appname"]
-    user = ecs_manifest["metadata"].get("user", os.environ["USER"])
+    app_name = ecs_manifest.metadata.appname
+    user = ecs_manifest.metadata.user
     stack_name = f"{user}-{app_name}"
     delete_stack(stack_name)
 
@@ -319,7 +318,7 @@ def click_dev(ctx, no_docker_build, force_redeployment):
     ),
 )
 @click.pass_context
-def click_delete(ctx):
+def click_delete(ctx, force_redeployment):
     action_delete()
 
 

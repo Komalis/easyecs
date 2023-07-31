@@ -18,10 +18,10 @@ popen_procs_exec_command = []
 
 
 def create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers):
-    containers = ecs_manifest["task_definition"]["containers"]
+    containers = ecs_manifest.task_definition.containers
     for container in containers:
-        container_name = container["name"]
-        container_ports = container.get("port_forward", [])
+        container_name = container.name
+        container_ports = container.port_forward
         for container_port in container_ports:
             from_port = container_port.split(":")[0]
             to_port = container_port.split(":")[1]
@@ -154,15 +154,13 @@ class StoppableThread(Thread):
 
 
 def run_sync_thread(parsed_containers, ecs_manifest):
-    containers = ecs_manifest["task_definition"]["containers"]
+    containers = ecs_manifest.task_definition.containers
     for container in containers:
-        synchronize = container.get("synchronize", None)
+        synchronize = container.synchronize
         if synchronize:
-            container_name = container["name"]
-            root = synchronize["root"]
-            exclude = [
-                ["--exclude", filename] for filename in synchronize.get("exclude", [])
-            ]
+            container_name = container.name
+            root = synchronize.root
+            exclude = [["--exclude", filename] for filename in synchronize.exclude]
             port = parsed_containers[container_name].get("netcat_port", None)
             if port:
                 cmd_tar_local = ["tar"]
@@ -192,17 +190,17 @@ def run_sync_thread(parsed_containers, ecs_manifest):
 
 
 def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
-    containers = ecs_manifest["task_definition"]["containers"]
+    containers = ecs_manifest.task_definition.containers
     catchable_sigs = set(signal.Signals) - {signal.SIGKILL, signal.SIGSTOP}
     ssm_client = boto3.client("ssm")
     found_tty = False
     tty_cmd = ""
     for container in containers:
-        command = container.get("command", None)
+        command = container.command
         if command:
-            tty = container.get("tty", False)
-            container_name = container["name"]
-            container_command = container["command"]
+            tty = container.tty
+            container_name = container.name
+            container_command = container.command
             target = parsed_containers.get(container_name)["ssm_target"]
             parameters_nc_server = {"command": [container_command]}
             ssm_container = ssm_client.start_session(
@@ -305,11 +303,11 @@ def check_nc_command(target, aws_region, aws_account):
 
 
 def run_nc_commands(parsed_containers, aws_region, aws_account, ecs_manifest):
-    containers = ecs_manifest["task_definition"]["containers"]
+    containers = ecs_manifest.task_definition.containers
     for container in containers:
-        synchronize = container.get("synchronize", None)
+        synchronize = container.synchronize
         if synchronize:
-            container_name = container["name"]
+            container_name = container.name
             parsed_container = parsed_containers.get(container_name)
             ssm_target = parsed_container["ssm_target"]
             loader = Loader(

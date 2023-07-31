@@ -62,19 +62,19 @@ def create_task_role(stack, service_name, ecs_manifest):
     role_name = f"{service_name}-task-role"
     policy_name = f"{service_name}-task-role-policy"
     assumed_by = ServicePrincipal("ecs-tasks.amazonaws.com")
-    managed_policies_raw = ecs_manifest["role"]["managed_policies"]
+    managed_policies_raw = ecs_manifest.role.managed_policies
     managed_policies = [
         ManagedPolicy.from_aws_managed_policy_name(managed_policy)
         for managed_policy in managed_policies_raw
     ]
-    policy_statements_raw = ecs_manifest["role"]["statements"]
+    policy_statements_raw = ecs_manifest.role.statements
     policy_statements = [
         PolicyStatement(
-            sid=policy_statement["sid"],
-            actions=policy_statement["actions"],
-            resources=policy_statement["resources"],
+            sid=policy_statement.sid,
+            actions=policy_statement.actions,
+            resources=policy_statement.resources,
             effect=(
-                Effect.ALLOW if policy_statement["effect"] == "Allow" else Effect.DENY
+                Effect.ALLOW if policy_statement.effect == "Allow" else Effect.DENY
             ),
         )
         for policy_statement in policy_statements_raw
@@ -104,19 +104,19 @@ def create_execution_task_role(stack, service_name, ecs_manifest):
     role_name = f"{service_name}-execution-task-role"
     policy_name = f"{service_name}-execution-task-role-policy"
     assumed_by = ServicePrincipal("ecs-tasks.amazonaws.com")
-    managed_policies_raw = ecs_manifest["execution_role"]["managed_policies"]
+    managed_policies_raw = ecs_manifest.execution_role.managed_policies
     managed_policies = [
         ManagedPolicy.from_aws_managed_policy_name(managed_policy)
         for managed_policy in managed_policies_raw
     ]
-    policy_statements_raw = ecs_manifest["execution_role"]["statements"]
+    policy_statements_raw = ecs_manifest.execution_role.statements
     policy_statements = [
         PolicyStatement(
-            sid=policy_statement["sid"],
-            actions=policy_statement["actions"],
-            resources=policy_statement["resources"],
+            sid=policy_statement.sid,
+            actions=policy_statement.actions,
+            resources=policy_statement.resources,
             effect=(
-                Effect.ALLOW if policy_statement["effect"] == "Allow" else Effect.DENY
+                Effect.ALLOW if policy_statement.effect == "Allow" else Effect.DENY
             ),
         )
         for policy_statement in policy_statements_raw
@@ -173,9 +173,9 @@ def create_task_definition(
     )
 
     task_definition_name = f"{service_name}-task-definition"
-    resource_limits = ecs_data["task_definition"]["resources"]["limits"]
-    cpu_limit = resource_limits["cpu"] * 1024
-    memory_limit = resource_limits["memory"]
+    resource_limits = ecs_data.task_definition.resources.limits
+    cpu_limit = resource_limits.cpu * 1024
+    memory_limit = resource_limits.memory
     task_definition: FargateTaskDefinition = FargateTaskDefinition(
         stack,
         task_definition_name,
@@ -184,30 +184,30 @@ def create_task_definition(
         cpu=cpu_limit,
         memory_limit_mib=memory_limit,
     )
-    container_definitions = ecs_data["task_definition"]["containers"]
+    container_definitions = ecs_data.task_definition.containers
     log_configuration = LogDriver.aws_logs(stream_prefix="ecs", log_group=log_group)
     for container_definition in container_definitions:
-        name = container_definition["name"]
-        image = container_definition["image"]
-        user = container_definition.get("user", "root")
-        resource_limits = container_definition["resources"]["limits"]
-        cpu = resource_limits["cpu"] * 1024
-        memory = resource_limits["memory"]
-        command = container_definition.get("command", None).split(" ")
+        name = container_definition.name
+        image = container_definition.image
+        user = container_definition.user
+        resource_limits = container_definition.resources.limits
+        cpu = resource_limits.cpu * 1024
+        memory = resource_limits.memory
+        command = container_definition.command.split(" ")
         if not run:
             command = ["sleep", "infinity"]
         environment = {}
-        for env_definition in container_definition["env"]:
-            env_name = env_definition["name"]
-            env_value = env_definition["value"]
-            env_active = env_definition.get("active", True)
+        for env_definition in container_definition.env:
+            env_name = env_definition.name
+            env_value = env_definition.value
+            env_active = env_definition.active
             if env_active:
                 environment[env_name] = env_value
         secrets = {}
-        for secret_definition in container_definition["secrets"]:
-            secret_name = secret_definition["name"]
-            secret_field = secret_definition["field"]
-            secret_arn = secret_definition["arn"]
+        for secret_definition in container_definition.secrets:
+            secret_name = secret_definition.name
+            secret_field = secret_definition.field
+            secret_arn = secret_definition.arn
             secret = Secret.from_secret_complete_arn(
                 stack, f"{secret_name}_{name}", secret_arn
             )

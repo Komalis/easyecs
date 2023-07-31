@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "easyecs"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = ["BONVARLET Benjamin <benjaminbonvarlet96@gmail.com>"]
 readme = "README.md"
@@ -13,6 +13,7 @@ inotify = "^0.2.10"
 boto3 = "^1.28.14"
 aws-cdk-lib = "^2.89.0"
 pyyaml = "^6.0.1"
+pydantic = "^2.1.1"
 
 [tool.poetry.scripts]
 easyecs = "easyecs.cli:entrypoint"

@@ -3,18 +3,18 @@ from easyecs.helpers.common import parse_dict_with_env_var
 
 
 def build_docker_image(ecs_manifest):
-    containers = ecs_manifest["task_definition"]["containers"]
+    containers = ecs_manifest.task_definition.containers
     for container in containers:
-        image_name = container.get("image")
-        build = container.get("build", None)
+        image_name = container.image
+        build = container.build
         if build:
-            dockerfile = build.get("dockerfile", "Dockerfile")
+            dockerfile = build.dockerfile
             if dockerfile:
                 dockerfile = f"-f {dockerfile}"
-            target = build.get("target", None)
+            target = build.target
             if target:
                 target = f"--target {target}"
-            build_args = build.get("args", {})
+            build_args = build.args
             build_args = parse_dict_with_env_var(build_args)
             build_args_str = " ".join(
                 [f'--build-arg {key}="{value}"' for key, value in build_args.items()]
