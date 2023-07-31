@@ -1,0 +1,22 @@
+name: auto_tag
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag_repo:
+    name: Tag the current code snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+      - name: Auto tag main branch
+        run: |
+          pip install toml
+          VERSION=$(python -c 'import toml; print("v" + toml.load("pyproject.toml")["tool"]["poetry"]["version"])')
+          git tag $(cat VERSION)
+          git push --tags
