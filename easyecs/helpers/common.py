@@ -1,11 +1,21 @@
+import json
 import os
 import random
 import time
+from typing import Dict
 import boto3
 import socket
 from botocore.exceptions import UnauthorizedSSOTokenError
 
 from easyecs.helpers.color import Color
+
+
+def load_template(stack_name: str) -> Dict:
+    """
+    Loads the CloudFormation template from a JSON file.
+    """
+    with open(f".cloudformation/{stack_name}.template.json") as f:
+        return json.load(f)
 
 
 def parse_dict_with_env_var(build_args):
