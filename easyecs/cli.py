@@ -3,15 +3,13 @@
 import time
 import boto3
 import click
+from easyecs.cloudformation.stack.create import create_stack
+from easyecs.cloudformation.stack.delete import delete_stack
+from easyecs.cloudformation.stack.update import update_stack
 from easyecs.cloudformation.template import create_template
 from easyecs.cloudformation.fetch import (
     fetch_containers,
     fetch_is_stack_created,
-)
-from easyecs.cloudformation.stack import (
-    create_stack,
-    delete_stack,
-    update_stack,
 )
 from easyecs.command import (
     run_nc_commands,
