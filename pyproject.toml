@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "easyecs"
-version = "0.1.5"
+version = "0.2.1"
 description = ""
 authors = ["BONVARLET Benjamin <benjaminbonvarlet96@gmail.com>"]
 readme = "README.md"
@@ -17,6 +17,11 @@ pydantic = "^2.1.1"
 
 [tool.poetry.scripts]
 easyecs = "easyecs.cli:entrypoint"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-mock = "^3.11.1"
+pytest-cov = "^4.1.0"
 
 [build-system]
 requires = ["poetry-core"]
