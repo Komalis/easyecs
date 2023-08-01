@@ -303,22 +303,14 @@ def click_run(ctx, no_docker_build, force_redeployment):
 )
 @click.pass_context
 def click_dev(ctx, no_docker_build, force_redeployment):
+    ctx["no_docker_build"] = no_docker_build
+    ctx["force_redeployment"] = force_redeployment
     action_dev(no_docker_build, force_redeployment)
 
 
 @entrypoint.command(name="delete", help="Delete a stack")
-@click.option(
-    "--force-redeployment",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If used, and only when there's no update on the cloudformation stack, easyecs"
-        " will force a new deployment of the task."
-    ),
-)
 @click.pass_context
-def click_delete(ctx, force_redeployment):
+def click_delete(ctx):
     action_delete()
 
 
