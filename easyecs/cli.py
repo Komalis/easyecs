@@ -53,6 +53,7 @@ def step_docker_build_and_push(
     vpc_id,
     subnet_ids,
     azs,
+    run,
 ):
     if not no_docker_build:
         loader_docker = Loader(
@@ -80,7 +81,7 @@ def step_docker_build_and_push(
         subnet_ids,
         azs,
         ecs_manifest,
-        run=True,
+        run,
     )
     loader.stop()
 
@@ -142,6 +143,7 @@ def action_run(ctx):
         vpc_id,
         subnet_ids,
         azs,
+        True,
     )
     step_create_or_update_stack(stack_name, force_redeployment)
     parsed_containers = fetch_containers(user, app_name)
@@ -182,6 +184,7 @@ def action_dev(ctx):
         vpc_id,
         subnet_ids,
         azs,
+        False,
     )
     step_create_or_update_stack(stack_name, force_redeployment)
     parsed_containers = fetch_containers(user, app_name)
