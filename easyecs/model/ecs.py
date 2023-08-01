@@ -1,6 +1,6 @@
 import os
 from typing import Dict, List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 
 class EcsFileMetadataModel(BaseModel):
@@ -18,6 +18,15 @@ class EcsFileStatementModel(BaseModel):
 class EcsFileRoleModel(BaseModel):
     managed_policies: List[str] = []
     statements: List[EcsFileStatementModel]
+
+    @validator("statements")
+    def validate_unique_sid(cls, statements):
+        seen = set()
+        for statement in statements:
+            if statement.sid in seen:
+                raise ValueError(f"Duplicate sid {statement.sid} found in statements.")
+            seen.add(statement.sid)
+        return statements
 
 
 class EcsFileLimitsModel(BaseModel):
