@@ -80,6 +80,16 @@ class EcsTaskDefinitionModel(BaseModel):
     resources: EcsFileResourcesModel
     containers: List[EcsFileContainerModel]
 
+    @validator("containers")
+    def validate_single_tty(cls, containers):
+        tty_containers = [container.name for container in containers if container.tty]
+        if len(tty_containers) > 1:
+            raise ValueError(
+                "More than one container has tty set to true:"
+                f" {', '.join(tty_containers)}."
+            )
+        return containers
+
 
 class EcsFileModel(BaseModel):
     metadata: EcsFileMetadataModel
