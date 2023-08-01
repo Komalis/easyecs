@@ -13,7 +13,6 @@ from easyecs.cloudformation.stack import (
     delete_stack,
     update_stack,
 )
-from easyecs.cloudformation.template.verify import verify_ecs_manifest
 from easyecs.command import (
     run_nc_commands,
     create_port_forwards,
@@ -130,8 +129,6 @@ def action_run(ctx):
     azs = cache_settings["azs"]
     stack_name = f"{user}-{app_name}"
 
-    verify_ecs_manifest(ecs_manifest)
-
     print()
     step_import_aws_cdk()
     step_docker_build_and_push(
@@ -170,8 +167,6 @@ def action_dev(ctx):
     subnet_ids = cache_settings["subnet_ids"]
     azs = cache_settings["azs"]
     stack_name = f"{user}-{app_name}"
-
-    verify_ecs_manifest(ecs_manifest)
 
     print()
     step_import_aws_cdk()
