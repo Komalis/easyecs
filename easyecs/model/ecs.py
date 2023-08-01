@@ -1,6 +1,6 @@
 import os
 from typing import Dict, List, Optional
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 
 class EcsFileMetadataModel(BaseModel):
@@ -19,7 +19,7 @@ class EcsFileRoleModel(BaseModel):
     managed_policies: List[str] = []
     statements: List[EcsFileStatementModel]
 
-    @validator("statements")
+    @field_validator("statements")
     def validate_unique_sid(cls, statements):
         seen = set()
         for statement in statements:
@@ -80,7 +80,7 @@ class EcsTaskDefinitionModel(BaseModel):
     resources: EcsFileResourcesModel
     containers: List[EcsFileContainerModel]
 
-    @validator("containers")
+    @field_validator("containers")
     def validate_single_tty(cls, containers):
         tty_containers = [container.name for container in containers if container.tty]
         if len(tty_containers) > 1:
