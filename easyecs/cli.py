@@ -31,7 +31,9 @@ from easyecs.helpers.loader import Loader
 from easyecs.helpers.settings import load_settings, read_ecs_file
 
 
-def action_run(no_docker_build, force_redeployment):
+def action_run(ctx):
+    no_docker_build = ctx["no_docker_build"]
+    force_redeployment = ctx["force_redeployment"]
     aws_account = boto3.client("iam").list_account_aliases()["AccountAliases"][0]
     cache_settings = load_settings(aws_account)
     aws_region = cache_settings["aws_region"]
@@ -119,7 +121,9 @@ def action_run(no_docker_build, force_redeployment):
     exit(0)
 
 
-def action_dev(no_docker_build, force_redeployment):
+def action_dev(ctx):
+    no_docker_build = ctx["no_docker_build"]
+    force_redeployment = ctx["force_redeployment"]
     aws_account = boto3.client("iam").list_account_aliases()["AccountAliases"][0]
     cache_settings = load_settings(aws_account)
     aws_region = cache_settings["aws_region"]
@@ -225,7 +229,7 @@ def action_dev(no_docker_build, force_redeployment):
     exit(0)
 
 
-def action_delete():
+def action_delete(ctx):
     ecs_manifest = read_ecs_file()
     app_name = ecs_manifest.metadata.appname
     user = ecs_manifest.metadata.user
@@ -277,7 +281,9 @@ def entrypoint(ctx):
 )
 @click.pass_context
 def click_run(ctx, no_docker_build, force_redeployment):
-    action_run(no_docker_build, force_redeployment)
+    ctx["no_docker_build"] = no_docker_build
+    ctx["force_redeployment"] = force_redeployment
+    action_run(ctx)
 
 
 @entrypoint.command(name="dev", help="Run a stack in development mode")
@@ -305,13 +311,13 @@ def click_run(ctx, no_docker_build, force_redeployment):
 def click_dev(ctx, no_docker_build, force_redeployment):
     ctx["no_docker_build"] = no_docker_build
     ctx["force_redeployment"] = force_redeployment
-    action_dev(no_docker_build, force_redeployment)
+    action_dev(ctx)
 
 
 @entrypoint.command(name="delete", help="Delete a stack")
 @click.pass_context
 def click_delete(ctx):
-    action_delete()
+    action_delete(ctx)
 
 
 if __name__ == "__main__":
