@@ -6,6 +6,10 @@ import pytest
 
 from easyecs.cli import action_dev, action_run
 
+# Those tests are checking if cloudformation is called in different use cases.
+# It also checks if waiters are called to wait for the stack to be completed.
+# And moreover checks if the errors are handled correctly.
+
 
 @dataclass
 class Context:
@@ -207,3 +211,42 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
     run_action(action, ctx)
 
     mock.get_waiter.assert_called_once_with("stack_rollback_complete")
+
+
+@pytest.mark.parametrize("action", actions)
+def test_cloudformation_waiter_stack_update_complete_is_called_stack_created(  # noqa: E501
+    action, setup_mocker, mocker
+):
+    mocker.patch("easyecs.cli.fetch_is_stack_created", return_value=True)
+    mocker.patch("easyecs.cloudformation.stack.update.boto3.resource")
+    mocker.patch("easyecs.cloudformation.stack.update.load_template", return_value={})
+
+    mock = MagicMock()
+    mocker.patch(
+        "easyecs.cloudformation.stack.update.get_client_cloudformation",
+        return_value=mock,
+    )
+
+    ctx = create_context()
+    run_action(action, ctx)
+
+    mock.get_waiter.assert_called_once_with("stack_update_complete")
+
+
+@pytest.mark.parametrize("action", actions)
+def test_cloudformation_waiter_stack_create_complete_is_called_stack_not_created(  # noqa: E501
+    action, setup_mocker, mocker
+):
+    mocker.patch("easyecs.cli.fetch_is_stack_created", return_value=False)
+    mocker.patch("easyecs.cloudformation.stack.create.load_template", return_value={})
+
+    mock = MagicMock()
+    mocker.patch(
+        "easyecs.cloudformation.stack.create.get_client_cloudformation",
+        return_value=mock,
+    )
+
+    ctx = create_context()
+    run_action(action, ctx)
+
+    mock.get_waiter.assert_called_once_with("stack_create_complete")
