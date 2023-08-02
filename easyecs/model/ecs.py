@@ -1,6 +1,6 @@
 import os
 from typing import Dict, List, Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, computed_field, field_validator
 
 
 class EcsFileMetadataModel(BaseModel):
@@ -62,6 +62,12 @@ class EcsFileSecretModel(BaseModel):
     active: bool = True
 
 
+class EcsFileVolumeModel(BaseModel):
+    name: str
+    id: str
+    mount_point: str
+
+
 class EcsFileContainerModel(BaseModel):
     name: str
     image: str
@@ -74,6 +80,7 @@ class EcsFileContainerModel(BaseModel):
     port_forward: List[str] = []
     env: List[EcsFileEnvModel] = []
     secrets: List[EcsFileSecretModel] = []
+    volumes: List[EcsFileVolumeModel] = []
 
 
 class EcsTaskDefinitionModel(BaseModel):
@@ -89,6 +96,14 @@ class EcsTaskDefinitionModel(BaseModel):
                 f" {', '.join(tty_containers)}."
             )
         return containers
+
+    @computed_field(return_type=List[EcsFileVolumeModel])
+    @property
+    def volumes(self) -> List[EcsFileVolumeModel]:
+        volumes = [
+            volume for container in self.containers for volume in container.volumes
+        ]
+        return volumes
 
 
 class EcsFileModel(BaseModel):
