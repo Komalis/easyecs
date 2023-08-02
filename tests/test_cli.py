@@ -216,6 +216,34 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
 
 
 @pytest.mark.parametrize("action", actions)
+def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_no_update_create_in_progress(  # noqa: E501
+    action, setup_mocker, mocker
+):
+    mocker.patch("easyecs.cli.fetch_is_stack_created", return_value=True)
+    mocker.patch("easyecs.cloudformation.stack.update.boto3.resource")
+    mocker.patch("easyecs.cloudformation.stack.update.load_template", return_value={})
+
+    error_response = {"Error": {"Code": None, "Message": "CREATE_IN_PROGRESS"}}
+    mocker.patch(
+        "easyecs.cloudformation.stack.update.wait_for_stack_update",
+        side_effect=ClientError(
+            error_response=error_response, operation_name="stack_create_complete"
+        ),
+    )
+
+    mock = MagicMock()
+    mocker.patch(
+        "easyecs.cloudformation.stack.update.get_client_cloudformation",
+        return_value=mock,
+    )
+
+    ctx = create_context()
+    run_action(action, ctx)
+
+    mock.get_waiter.assert_called_once_with("stack_create_complete")
+
+
+@pytest.mark.parametrize("action", actions)
 def test_cloudformation_waiter_stack_update_complete_is_called_stack_created(  # noqa: E501
     action, setup_mocker, mocker
 ):
