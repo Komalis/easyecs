@@ -1,13 +1,13 @@
 #!python
 
 import time
-import boto3
 import click
 from easyecs.cloudformation.stack.create import create_stack
 from easyecs.cloudformation.stack.delete import delete_stack
 from easyecs.cloudformation.stack.update import update_stack
 from easyecs.cloudformation.template import create_template
 from easyecs.cloudformation.fetch import (
+    fetch_aws_account,
     fetch_containers,
     fetch_is_stack_created,
 )
@@ -115,7 +115,7 @@ def step_clean_exit():
 def action_run(ctx):
     no_docker_build = ctx.obj["no_docker_build"]
     force_redeployment = ctx.obj["force_redeployment"]
-    aws_account = boto3.client("iam").list_account_aliases()["AccountAliases"][0]
+    aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
     ecs_manifest = read_ecs_file()
     app_name = ecs_manifest.metadata.appname
@@ -154,7 +154,7 @@ def action_run(ctx):
 def action_dev(ctx):
     no_docker_build = ctx.obj["no_docker_build"]
     force_redeployment = ctx.obj["force_redeployment"]
-    aws_account = boto3.client("iam").list_account_aliases()["AccountAliases"][0]
+    aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
     ecs_manifest = read_ecs_file()
     app_name = ecs_manifest.metadata.appname

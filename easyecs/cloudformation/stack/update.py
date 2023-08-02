@@ -2,6 +2,7 @@ import json
 from typing import Dict
 import boto3
 from botocore.utils import ClientError
+from easyecs.cloudformation.client import get_client_cloudformation
 from easyecs.command import run_force_new_deployment
 
 from easyecs.helpers.color import Color
@@ -13,7 +14,7 @@ def update_cloudformation_stack(stack_name: str, template_body: Dict):
     """
     Sends a request to AWS to update a CloudFormation stack.
     """
-    client = boto3.client("cloudformation")
+    client = get_client_cloudformation()
     client.update_stack(
         StackName=stack_name,
         TemplateBody=json.dumps(template_body),
@@ -26,7 +27,7 @@ def wait_for_stack_update(stack_name: str):
     Waits for the CloudFormation stack to be updated.
     Throws an exception if the update fails.
     """
-    client = boto3.client("cloudformation")
+    client = get_client_cloudformation()
     waiter = client.get_waiter("stack_update_complete")
     waiter.wait(StackName=stack_name)
 
@@ -35,7 +36,7 @@ def wait_for_stack_rollback(stack_name: str):
     """
     Waits for the CloudFormation stack to be rolled back.
     """
-    client = boto3.client("cloudformation")
+    client = get_client_cloudformation()
     waiter = client.get_waiter("stack_rollback_complete")
     waiter.wait(StackName=stack_name)
 

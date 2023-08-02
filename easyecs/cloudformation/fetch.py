@@ -7,6 +7,11 @@ from easyecs.helpers.common import (
 from easyecs.helpers.selector import select_action
 
 
+def fetch_aws_account():
+    aws_account = boto3.client("iam").list_account_aliases()["AccountAliases"][0]
+    return aws_account
+
+
 def fetch_region():
     client = boto3.client("ec2")
     response = client.describe_regions()
