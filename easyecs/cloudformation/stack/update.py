@@ -41,6 +41,15 @@ def wait_for_stack_rollback(stack_name: str):
     waiter.wait(StackName=stack_name)
 
 
+def wait_for_stack_create(stack_name: str):
+    """
+    Waits for the CloudFormation stack to be created.
+    """
+    client = get_client_cloudformation()
+    waiter = client.get_waiter("stack_create_complete")
+    waiter.wait(StackName=stack_name)
+
+
 def handle_update_error(e: ClientError, stack_name: str, force_redeployment: bool):
     """
     Handles a CloudFormation stack update failure.
@@ -59,6 +68,8 @@ def handle_update_error(e: ClientError, stack_name: str, force_redeployment: boo
         wait_for_stack_rollback(stack_name)
     elif "ROLLBACK_IN_PROGRESS" in message:
         wait_for_stack_rollback(stack_name)
+    elif "CREATE_IN_PROGRESS" in message:
+        wait_for_stack_create(stack_name)
     else:
         print(e)
 
