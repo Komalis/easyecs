@@ -171,6 +171,7 @@ def create_task_definition(
         FargateTaskDefinition,
         Secret as ECSSecret,
     )
+    from aws_cdk.aws_ecs import EfsVolumeConfiguration, MountPoint
 
     task_definition_name = f"{service_name}-task-definition"
     resource_limits = ecs_data.task_definition.resources.limits
@@ -184,6 +185,11 @@ def create_task_definition(
         cpu=cpu_limit,
         memory_limit_mib=memory_limit,
     )
+    for volume in ecs_data.task_definition.volumes:
+        efs_volume_configuration = EfsVolumeConfiguration(file_system_id=volume.id)
+        task_definition.add_volume(
+            name=volume.name, efs_volume_configuration=efs_volume_configuration
+        )
     container_definitions = ecs_data.task_definition.containers
     log_configuration = LogDriver.aws_logs(stream_prefix="ecs", log_group=log_group)
     for container_definition in container_definitions:
@@ -213,7 +219,7 @@ def create_task_definition(
             )
             ecs_secret = ECSSecret.from_secrets_manager(secret, secret_field)
             secrets[secret_name] = ecs_secret
-        task_definition.add_container(
+        container = task_definition.add_container(
             id=name,
             container_name=name,
             image=ContainerImage.from_registry(image),
@@ -225,6 +231,13 @@ def create_task_definition(
             memory_limit_mib=memory,
             user=user,
         )
+        for volume in container_definition.volumes:
+            mount_point = MountPoint(
+                container_path=volume.mount_point,
+                read_only=False,
+                source_volume=volume.name,
+            )
+            container.add_mount_points(mount_point)
     return task_definition
 
 

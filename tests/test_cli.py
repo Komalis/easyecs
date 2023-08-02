@@ -68,6 +68,8 @@ def test_cloudformation_create_stack_is_not_called_stack_created(
     action, setup_mocker, mocker
 ):
     mocker.patch("easyecs.cli.fetch_is_stack_created", return_value=True)
+    mocker.patch("easyecs.cloudformation.stack.update.update_cloudformation_stack")
+    mocker.patch("easyecs.cloudformation.stack.update.wait_for_stack_update")
     mocker.patch("easyecs.cloudformation.stack.update.load_template", return_value={})
 
     mock = MagicMock()
