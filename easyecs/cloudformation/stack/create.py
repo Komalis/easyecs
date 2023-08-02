@@ -1,8 +1,8 @@
 import json
 from typing import Dict
 
-import boto3
 from botocore.waiter import WaiterError
+from easyecs.cloudformation.client import get_client_cloudformation
 from easyecs.cloudformation.stack.delete import delete_stack
 
 from easyecs.helpers.color import Color
@@ -14,7 +14,7 @@ def create_cloudformation_stack(stack_name: str, template_body: Dict):
     """
     Sends a request to AWS to create a CloudFormation stack.
     """
-    client = boto3.client("cloudformation")
+    client = get_client_cloudformation()
     client.create_stack(
         StackName=stack_name,
         TemplateBody=json.dumps(template_body),
@@ -27,7 +27,7 @@ def wait_for_stack_creation(stack_name: str):
     Waits for the CloudFormation stack to be created.
     Throws an exception if the creation fails.
     """
-    client = boto3.client("cloudformation")
+    client = get_client_cloudformation()
     waiter = client.get_waiter("stack_create_complete")
     waiter.wait(StackName=stack_name)
 
