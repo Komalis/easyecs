@@ -81,7 +81,7 @@ def update_stack(stack_name: str, force_redeployment: bool):
             update_cloudformation_stack(stack_name, cloudformation_template)
             wait_for_stack_update(stack_name)
             loader.stop()
-            break
         except ClientError as e:
             loader.stop_error()
             handle_update_error(e, stack_name, force_redeployment)
+        break
