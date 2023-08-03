@@ -23,6 +23,7 @@ def build_docker_image(ecs_manifest):
             if target:
                 build_cmd += f" {target}"
             build_cmd += f" {build_args_str}"
+            build_cmd += " ."
             res = subprocess.Popen(
                 build_cmd,
                 shell=True,
