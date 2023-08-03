@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import yaml
@@ -18,6 +19,31 @@ def read_ecs_file() -> EcsFileModel:
     with open("./ecs.yml") as f:
         data = yaml.load(f, Loader=SafeLoader)
     return EcsFileModel(**data)
+
+
+def compute_hash_ecs_file():
+    hash_sha256 = hashlib.sha256()
+    with open("ecs.yml", "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()
+
+
+def save_hash(aws_account):
+    hash_sha256 = compute_hash_ecs_file()
+    with open(".tmp/easyecs.tmp", "r") as f:
+        cache_configuration = json.load(f)
+    cache_configuration[aws_account]["sha256"] = hash_sha256
+    with open(".tmp/easyecs.tmp", "w") as f:
+        json.dump(cache_configuration, f)
+
+
+def delete_hash(aws_account):
+    with open(".tmp/easyecs.tmp", "r") as f:
+        cache_configuration = json.load(f)
+    cache_configuration[aws_account]["sha256"] = None
+    with open(".tmp/easyecs.tmp", "w") as f:
+        json.dump(cache_configuration, f)
 
 
 def load_settings(aws_account):
@@ -46,12 +72,15 @@ def load_settings(aws_account):
     if not subnet_ids:
         subnet_ids = fetch_container_subnet_ids(vpc_id)
 
+    hash_sha256 = account_cache_configuration.get("sha256", None)
+
     cache_configuration[aws_account] = {
         "aws_region": aws_region,
         "aws_account_id": aws_account_id,
         "vpc_id": vpc_id,
         "subnet_ids": subnet_ids,
         "azs": azs,
+        "sha256": hash_sha256,
     }
 
     print(

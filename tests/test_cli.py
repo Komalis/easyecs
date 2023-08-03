@@ -30,6 +30,8 @@ def setup_mocker(mocker):
     mocker.patch("easyecs.cli.execute_command")
     mocker.patch("easyecs.cli.step_idle_keyboard")
     mocker.patch("easyecs.cli.step_clean_exit")
+    mocker.patch("easyecs.cli.save_hash")
+    mocker.patch("easyecs.cli.has_ecs_file_changed", return_value=True)
 
 
 def create_context():
@@ -280,3 +282,44 @@ def test_cloudformation_waiter_stack_create_complete_is_called_stack_not_created
     run_action(action, ctx)
 
     mock.get_waiter.assert_called_once_with("stack_create_complete")
+
+
+@pytest.mark.parametrize("action", actions)
+def test_cloudformation_waiter_stack_no_create_or_update_if_hash_same(  # noqa: E501
+    action, setup_mocker, mocker
+):
+    mocker.patch("easyecs.cli.has_ecs_file_changed", return_value=False)
+
+    mocks = [
+        mocker.patch("easyecs.cli.step_import_aws_cdk"),
+        mocker.patch("easyecs.cli.step_docker_build_and_push"),
+        mocker.patch("easyecs.cli.step_create_or_update_stack"),
+        mocker.patch("easyecs.cli.save_hash"),
+    ]
+
+    ctx = create_context()
+    run_action(action, ctx)
+
+    for mock in mocks:
+        mock.assert_not_called()
+
+
+@pytest.mark.parametrize("action", actions)
+def test_cloudformation_waiter_stack_create_or_update_if_hash_same_force_redeployment(  # noqa: E501
+    action, setup_mocker, mocker
+):
+    mocker.patch("easyecs.cli.has_ecs_file_changed", return_value=False)
+
+    mocks = [
+        mocker.patch("easyecs.cli.step_import_aws_cdk"),
+        mocker.patch("easyecs.cli.step_docker_build_and_push"),
+        mocker.patch("easyecs.cli.step_create_or_update_stack"),
+        mocker.patch("easyecs.cli.save_hash"),
+    ]
+
+    ctx = create_context()
+    ctx.obj["force_redeployment"] = True
+    run_action(action, ctx)
+
+    for mock in mocks:
+        mock.assert_called_once()

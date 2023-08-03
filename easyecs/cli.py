@@ -21,10 +21,17 @@ from easyecs.command import (
     threads,
 )
 from easyecs.docker import build_docker_image
+from easyecs.helpers.color import Color
 from easyecs.helpers.common import check_credentials
 from easyecs.helpers.loader import Loader
 
-from easyecs.helpers.settings import load_settings, read_ecs_file
+from easyecs.helpers.settings import (
+    compute_hash_ecs_file,
+    delete_hash,
+    load_settings,
+    read_ecs_file,
+    save_hash,
+)
 
 
 def step_import_aws_cdk():
@@ -112,6 +119,44 @@ def step_clean_exit():
         popen_proc.wait()
 
 
+def has_ecs_file_changed(cache_settings):
+    hash_sha256 = compute_hash_ecs_file()
+    return hash_sha256 != cache_settings["sha256"]
+
+
+def step_bring_up_stack(
+    cache_settings,
+    no_docker_build,
+    ecs_manifest,
+    stack_name,
+    aws_account_id,
+    aws_region,
+    vpc_id,
+    subnet_ids,
+    azs,
+    force_redeployment,
+    aws_account,
+):
+    print()
+    if has_ecs_file_changed(cache_settings) or force_redeployment:
+        step_import_aws_cdk()
+        step_docker_build_and_push(
+            no_docker_build,
+            ecs_manifest,
+            stack_name,
+            aws_account_id,
+            aws_region,
+            vpc_id,
+            subnet_ids,
+            azs,
+            True,
+        )
+        step_create_or_update_stack(stack_name, force_redeployment)
+        save_hash(aws_account)
+    else:
+        print(f"{Color.YELLOW}No updates are to be performed.{Color.END}")
+
+
 def action_run(ctx):
     no_docker_build = ctx.obj["no_docker_build"]
     force_redeployment = ctx.obj["force_redeployment"]
@@ -127,9 +172,8 @@ def action_run(ctx):
     azs = cache_settings["azs"]
     stack_name = f"{user}-{app_name}"
 
-    print()
-    step_import_aws_cdk()
-    step_docker_build_and_push(
+    step_bring_up_stack(
+        cache_settings,
         no_docker_build,
         ecs_manifest,
         stack_name,
@@ -138,9 +182,9 @@ def action_run(ctx):
         vpc_id,
         subnet_ids,
         azs,
-        True,
+        force_redeployment,
+        aws_account,
     )
-    step_create_or_update_stack(stack_name, force_redeployment)
     parsed_containers = fetch_containers(user, app_name)
     print()
     create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers)
@@ -166,9 +210,8 @@ def action_dev(ctx):
     azs = cache_settings["azs"]
     stack_name = f"{user}-{app_name}"
 
-    print()
-    step_import_aws_cdk()
-    step_docker_build_and_push(
+    step_bring_up_stack(
+        cache_settings,
         no_docker_build,
         ecs_manifest,
         stack_name,
@@ -177,9 +220,9 @@ def action_dev(ctx):
         vpc_id,
         subnet_ids,
         azs,
-        False,
+        force_redeployment,
+        aws_account,
     )
-    step_create_or_update_stack(stack_name, force_redeployment)
     parsed_containers = fetch_containers(user, app_name)
     print()
     create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers)
@@ -201,11 +244,13 @@ def action_dev(ctx):
 
 
 def action_delete(_):
+    aws_account = fetch_aws_account()
     ecs_manifest = read_ecs_file()
     app_name = ecs_manifest.metadata.appname
     user = ecs_manifest.metadata.user
     stack_name = f"{user}-{app_name}"
     delete_stack(stack_name)
+    delete_hash(aws_account)
 
 
 @click.group()
