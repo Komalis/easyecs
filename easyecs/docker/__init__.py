@@ -19,7 +19,7 @@ def build_docker_image(ecs_manifest):
             build_args_str = " ".join(
                 [f'--build-arg {key}="{value}"' for key, value in build_args.items()]
             )
-            build_cmd = f"docker_build -t {image_name} {dockerfile}"
+            build_cmd = f"docker build -t {image_name} {dockerfile}"
             if target:
                 build_cmd += f" {target}"
             build_cmd += f" {build_args_str}"
