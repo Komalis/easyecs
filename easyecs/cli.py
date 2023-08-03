@@ -136,6 +136,7 @@ def step_bring_up_stack(
     azs,
     force_redeployment,
     aws_account,
+    run,
 ):
     print()
     if has_ecs_file_changed(cache_settings) or force_redeployment:
@@ -149,7 +150,7 @@ def step_bring_up_stack(
             vpc_id,
             subnet_ids,
             azs,
-            True,
+            run,
         )
         step_create_or_update_stack(stack_name, force_redeployment)
         save_hash(aws_account)
@@ -184,6 +185,7 @@ def action_run(ctx):
         azs,
         force_redeployment,
         aws_account,
+        run=True,
     )
     parsed_containers = fetch_containers(user, app_name)
     print()
@@ -222,6 +224,7 @@ def action_dev(ctx):
         azs,
         force_redeployment,
         aws_account,
+        run=False,
     )
     parsed_containers = fetch_containers(user, app_name)
     print()
