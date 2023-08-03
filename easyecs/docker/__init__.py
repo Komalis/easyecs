@@ -19,14 +19,13 @@ def build_docker_image(ecs_manifest):
             build_args_str = " ".join(
                 [f'--build-arg {key}="{value}"' for key, value in build_args.items()]
             )
-            build_cmd = (
-                f"docker build -t {image_name} {dockerfile} {target} {build_args_str} ."
-            )
+            build_cmd = f"docker_build -t {image_name} {dockerfile}"
+            if target:
+                build_cmd += f" {target}"
+            build_cmd += f" {build_args_str}"
             res = subprocess.Popen(
                 build_cmd,
                 shell=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
             )
             res.wait()
             if res.poll() != 0:
@@ -36,7 +35,5 @@ def build_docker_image(ecs_manifest):
 
 def push_docker_image(image_name):
     push_cmd = f"docker push {image_name}"
-    res = subprocess.Popen(
-        push_cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
+    res = subprocess.Popen(push_cmd, shell=True)
     res.wait()
