@@ -50,7 +50,9 @@ def wait_for_stack_create(stack_name: str):
     waiter.wait(StackName=stack_name)
 
 
-def handle_update_error(e: ClientError, stack_name: str, force_redeployment: bool):
+def handle_update_error(
+    e: ClientError, stack_name: str, force_redeployment: bool, loader: Loader
+):
     """
     Handles a CloudFormation stack update failure.
     Depending on the error, either waits for a rollback, cancels an update,
@@ -58,6 +60,7 @@ def handle_update_error(e: ClientError, stack_name: str, force_redeployment: boo
     """
     message = e.response["Error"]["Message"]
     if message == "No updates are to be performed.":
+        loader.stop()
         print(f"{Color.YELLOW}No updates are to be performed.{Color.END}")
         if force_redeployment:
             run_force_new_deployment(stack_name)
@@ -66,11 +69,15 @@ def handle_update_error(e: ClientError, stack_name: str, force_redeployment: boo
         stack = cloudformation.Stack(stack_name)
         stack.cancel_update()
         wait_for_stack_rollback(stack_name)
+        loader.stop()
     elif "ROLLBACK_IN_PROGRESS" in message:
         wait_for_stack_rollback(stack_name)
+        loader.stop()
     elif "CREATE_IN_PROGRESS" in message:
         wait_for_stack_create(stack_name)
+        loader.stop()
     else:
+        loader.stop_error()
         print(e)
 
 
@@ -94,6 +101,5 @@ def update_stack(stack_name: str, force_redeployment: bool):
             wait_for_stack_update(stack_name)
             loader.stop()
         except ClientError as e:
-            loader.stop_error()
-            handle_update_error(e, stack_name, force_redeployment)
+            handle_update_error(e, stack_name, force_redeployment, loader)
         break
