@@ -38,7 +38,13 @@ def setup_mocker(mocker):
 
 
 def create_context():
-    return Context(obj={"no_docker_build": False, "force_redeployment": False})
+    return Context(
+        obj={
+            "no_docker_build": False,
+            "force_redeployment": False,
+            "show_docker_logs": False,
+        }
+    )
 
 
 def run_action(action, ctx):
