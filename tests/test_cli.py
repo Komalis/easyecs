@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 import json
+import subprocess
 from unittest.mock import MagicMock
 
 from botocore.client import ClientError
 import pytest
 
 from easyecs.cli import action_dev, action_run
-from easyecs.command import generate_cmd_nc_server
+from easyecs.command import generate_ssm_cmd
 
 # Those tests are checking if cloudformation is called in different use cases.
 # It also checks if waiters are called to wait for the stack to be completed.
@@ -350,13 +351,20 @@ def test_run_nc_when_dev_with_synchronize(action, mocker):  # noqa: E501
     mocker.patch("easyecs.command.generate_random_port", return_value=8000)
     mocker.patch("easyecs.command.port_forward")
     mocker.patch("easyecs.command.boto3.client")
+    ssm_cmd = MagicMock()
+    mocker.patch("easyecs.command.generate_ssm_cmd", return_value=ssm_cmd)
     proc_nc_server = mocker.patch("easyecs.command.subprocess.Popen")
     mocker.patch("easyecs.command.json.dumps")
 
     ctx = create_context()
     run_action(action, ctx)
 
-    proc_nc_server.assert_called_once()
+    proc_nc_server.assert_called_once_with(
+        ssm_cmd,
+        start_new_session=True,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+    )
 
 
 def test_generate_cmd_nc_server(mocker):  # noqa: E501
@@ -373,9 +381,7 @@ def test_generate_cmd_nc_server(mocker):  # noqa: E501
         json.dumps(dict(Target=target)),
         f"https://ssm.{aws_region}.amazonaws.com",
     ]
-    generated_cmd = generate_cmd_nc_server(
-        ssm_nc_server, aws_region, aws_account, target
-    )
+    generated_cmd = generate_ssm_cmd(ssm_nc_server, aws_region, aws_account, target)
     assert test_cmd == generated_cmd
 
 
@@ -441,3 +447,91 @@ def test_no_run_nc_when_dev_with_synchronize_without_nc(action, mocker):  # noqa
     run_action(action, ctx)
 
     proc_nc_server.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "action, ports",
+    [
+        (action_dev, ["8000:8000"]),
+        (action_run, ["8000:8000"]),
+        (action_dev, ["8000:8000", "8001:8001"]),
+        (action_run, ["8000:8000", "8001:8001"]),
+    ],
+)
+def test_run_port_forward(action, ports, mocker):  # noqa: E501
+    mocker.patch("easyecs.cli.fetch_aws_account", return_value="aws_account")
+    cache_settings = MagicMock()
+    cache_settings.aws_region = "eu-west-1"
+    mocker.patch("easyecs.cli.load_settings", return_value=cache_settings)
+    ecs_manifest = MagicMock()
+    container = MagicMock()
+    container.port_forward = ports
+    ecs_manifest.task_definition.containers = [container]
+    mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
+    mocker.patch("easyecs.cli.step_bring_up_stack")
+    parsed_containers = MagicMock()
+    mocker.patch("easyecs.cli.fetch_containers", return_value=parsed_containers)
+    mocker.patch("easyecs.cli.run_sync_thread")
+    mocker.patch("easyecs.cli.execute_command")
+    mocker.patch("easyecs.cli.step_idle_keyboard")
+    mocker.patch("easyecs.cli.step_clean_exit")
+    mocker.patch("easyecs.cli.run_nc_commands")
+    ssm_cmd = MagicMock()
+    mocker.patch("easyecs.command.generate_ssm_cmd", return_value=ssm_cmd)
+    mocker.patch("easyecs.command.boto3.client")
+    mocker.patch("easyecs.command.is_port_in_use", return_value=False)
+
+    process = mocker.patch("easyecs.command.subprocess.Popen")
+
+    ctx = create_context()
+    run_action(action, ctx)
+
+    if len(ports) == 1:
+        process.assert_called_once_with(
+            ssm_cmd,
+            start_new_session=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+        )
+    else:
+        assert process.call_count == len(ports)
+
+
+@pytest.mark.parametrize(
+    "action, ports",
+    [
+        (action_dev, ["8000:8000"]),
+        (action_run, ["8000:8000"]),
+        (action_dev, ["8000:8000", "8001:8001"]),
+        (action_run, ["8000:8000", "8001:8001"]),
+    ],
+)
+def test_no_run_port_forward_port_in_use(action, ports, mocker):  # noqa: E501
+    mocker.patch("easyecs.cli.fetch_aws_account", return_value="aws_account")
+    cache_settings = MagicMock()
+    cache_settings.aws_region = "eu-west-1"
+    mocker.patch("easyecs.cli.load_settings", return_value=cache_settings)
+    ecs_manifest = MagicMock()
+    container = MagicMock()
+    container.port_forward = ports
+    ecs_manifest.task_definition.containers = [container]
+    mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
+    mocker.patch("easyecs.cli.step_bring_up_stack")
+    parsed_containers = MagicMock()
+    mocker.patch("easyecs.cli.fetch_containers", return_value=parsed_containers)
+    mocker.patch("easyecs.cli.run_sync_thread")
+    mocker.patch("easyecs.cli.execute_command")
+    mocker.patch("easyecs.cli.step_idle_keyboard")
+    mocker.patch("easyecs.cli.step_clean_exit")
+    mocker.patch("easyecs.cli.run_nc_commands")
+    ssm_cmd = MagicMock()
+    mocker.patch("easyecs.command.generate_ssm_cmd", return_value=ssm_cmd)
+    mocker.patch("easyecs.command.boto3.client")
+    mocker.patch("easyecs.command.is_port_in_use", return_value=True)
+
+    process = mocker.patch("easyecs.command.subprocess.Popen")
+
+    ctx = create_context()
+    run_action(action, ctx)
+
+    process.assert_not_called()

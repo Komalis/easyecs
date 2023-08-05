@@ -73,15 +73,7 @@ def port_forward(
         )
         # It has to be done like that, in a new session.
         # Otherwise a CTRL+C would kill all port forwards.
-        ssm_cmd = [
-            "session-manager-plugin",
-            json.dumps(ssm_response),
-            aws_region,
-            "StartSession",
-            aws_account,
-            json.dumps(dict(Target=target)),
-            "https://ssm.eu-west-1.amazonaws.com",
-        ]
+        ssm_cmd = generate_ssm_cmd(ssm_response, aws_region, aws_account, target)
         process = subprocess.Popen(
             ssm_cmd,
             start_new_session=True,
@@ -239,7 +231,7 @@ def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
     return found_tty
 
 
-def generate_cmd_nc_server(ssm_nc_server, aws_region, aws_account, target):
+def generate_ssm_cmd(ssm_nc_server, aws_region, aws_account, target):
     return [
         "session-manager-plugin",
         json.dumps(ssm_nc_server),
@@ -274,9 +266,7 @@ def run_nc_command(parsed_containers, aws_region, aws_account, container_name):
         DocumentName="AWS-StartInteractiveCommand",
         Parameters=parameters_nc_server,
     )
-    cmd_nc_server = generate_cmd_nc_server(
-        ssm_nc_server, aws_region, aws_account, target
-    )
+    cmd_nc_server = generate_ssm_cmd(ssm_nc_server, aws_region, aws_account, target)
     proc_nc_server = subprocess.Popen(
         cmd_nc_server,
         start_new_session=True,
