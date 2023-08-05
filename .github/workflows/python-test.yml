@@ -30,4 +30,4 @@ jobs:
       - name: Poetry Install
         run: poetry install
       - name: Poetry Run Tests
-        run: poetry run pytest --cov
+        run: poetry run pytest --cov -vvv
