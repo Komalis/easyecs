@@ -44,7 +44,10 @@ def build_docker_image(ecs_manifest, show_docker_logs):
                 )
             res.wait()
             if res.poll() != 0:
-                raise Exception("There was an issue building the docker image")
+                raise Exception(
+                    "There was an issue building the docker image. Use"
+                    " --show-docker-logs to get more information!"
+                )
             push_docker_image(image_name, show_docker_logs)
 
 
@@ -56,4 +59,8 @@ def push_docker_image(image_name, show_docker_logs):
         res = subprocess.Popen(
             push_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL
         )
-    res.wait()
+    if res.poll() != 0:
+        raise Exception(
+            "There was an issue pushing the docker image. Use --show-docker-logs to get"
+            " more information!"
+        )
