@@ -239,6 +239,18 @@ def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
     return found_tty
 
 
+def generate_cmd_nc_server(ssm_nc_server, aws_region, aws_account, target):
+    return [
+        "session-manager-plugin",
+        json.dumps(ssm_nc_server),
+        aws_region,
+        "StartSession",
+        aws_account,
+        json.dumps(dict(Target=target)),
+        f"https://ssm.{aws_region}.amazonaws.com",
+    ]
+
+
 def run_nc_command(parsed_containers, aws_region, aws_account, container_name):
     random_port = generate_random_port()
     parsed_containers[container_name]["netcat_port"] = random_port
@@ -262,15 +274,9 @@ def run_nc_command(parsed_containers, aws_region, aws_account, container_name):
         DocumentName="AWS-StartInteractiveCommand",
         Parameters=parameters_nc_server,
     )
-    cmd_nc_server = [
-        "session-manager-plugin",
-        json.dumps(ssm_nc_server),
-        aws_region,
-        "StartSession",
-        aws_account,
-        json.dumps(dict(Target=target)),
-        "https://ssm.eu-west-1.amazonaws.com",
-    ]
+    cmd_nc_server = generate_cmd_nc_server(
+        ssm_nc_server, aws_region, aws_account, target
+    )
     proc_nc_server = subprocess.Popen(
         cmd_nc_server,
         start_new_session=True,
