@@ -57,6 +57,7 @@ def step_docker_build_and_push(
     vpc_id,
     subnet_ids,
     azs,
+    show_docker_logs,
     run,
 ):
     if not no_docker_build:
@@ -67,7 +68,7 @@ def step_docker_build_and_push(
             0.05,
         )
         loader_docker.start()
-        build_docker_image(ecs_manifest)
+        build_docker_image(ecs_manifest, show_docker_logs)
         loader_docker.stop()
 
     loader = Loader(
@@ -136,6 +137,7 @@ def step_bring_up_stack(
     azs,
     force_redeployment,
     aws_account,
+    show_docker_logs,
     run,
 ):
     print()
@@ -150,6 +152,7 @@ def step_bring_up_stack(
             vpc_id,
             subnet_ids,
             azs,
+            show_docker_logs,
             run,
         )
         step_create_or_update_stack(stack_name, force_redeployment)
@@ -161,6 +164,7 @@ def step_bring_up_stack(
 def action_run(ctx):
     no_docker_build = ctx.obj["no_docker_build"]
     force_redeployment = ctx.obj["force_redeployment"]
+    show_docker_logs = ctx.obj["show_docker_logs"]
     aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
     ecs_manifest = read_ecs_file()
@@ -185,6 +189,7 @@ def action_run(ctx):
         azs,
         force_redeployment,
         aws_account,
+        show_docker_logs,
         run=True,
     )
     parsed_containers = fetch_containers(user, app_name)
@@ -200,6 +205,7 @@ def action_run(ctx):
 def action_dev(ctx):
     no_docker_build = ctx.obj["no_docker_build"]
     force_redeployment = ctx.obj["force_redeployment"]
+    show_docker_logs = ctx.obj["show_docker_logs"]
     aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
     ecs_manifest = read_ecs_file()
@@ -224,6 +230,7 @@ def action_dev(ctx):
         azs,
         force_redeployment,
         aws_account,
+        show_docker_logs,
         run=False,
     )
     parsed_containers = fetch_containers(user, app_name)
@@ -284,10 +291,18 @@ def entrypoint(ctx):
         " will force a new deployment of the task."
     ),
 )
+@click.option(
+    "--show-docker-logs",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="If used, it will show the docker build and push logs",
+)
 @click.pass_context
-def click_run(ctx, no_docker_build, force_redeployment):
+def click_run(ctx, no_docker_build, force_redeployment, show_docker_logs):
     ctx.obj["no_docker_build"] = no_docker_build
     ctx.obj["force_redeployment"] = force_redeployment
+    ctx.obj["show_docker_logs"] = show_docker_logs
     action_run(ctx)
 
 
@@ -312,10 +327,18 @@ def click_run(ctx, no_docker_build, force_redeployment):
         " will force a new deployment of the task."
     ),
 )
+@click.option(
+    "--show-docker-logs",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="If used, it will show the docker build and push logs",
+)
 @click.pass_context
-def click_dev(ctx, no_docker_build, force_redeployment):
+def click_dev(ctx, no_docker_build, force_redeployment, show_docker_logs):
     ctx.obj["no_docker_build"] = no_docker_build
     ctx.obj["force_redeployment"] = force_redeployment
+    ctx.obj["show_docker_logs"] = show_docker_logs
     action_dev(ctx)
 
 

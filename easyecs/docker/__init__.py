@@ -23,24 +23,37 @@ def docker_build_cmd(build, image_name):
     return build_cmd
 
 
-def build_docker_image(ecs_manifest):
+def build_docker_image(ecs_manifest, show_docker_logs):
     containers = ecs_manifest.task_definition.containers
     for container in containers:
         image_name = container.image
         build = container.build
         if build:
             build_cmd = docker_build_cmd(build, image_name)
-            res = subprocess.Popen(
-                build_cmd,
-                shell=True,
-            )
+            if show_docker_logs:
+                res = subprocess.Popen(
+                    build_cmd,
+                    shell=True,
+                )
+            else:
+                res = subprocess.Popen(
+                    build_cmd,
+                    shell=True,
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
             res.wait()
             if res.poll() != 0:
                 raise Exception("There was an issue building the docker image")
-            push_docker_image(image_name)
+            push_docker_image(image_name, show_docker_logs)
 
 
-def push_docker_image(image_name):
+def push_docker_image(image_name, show_docker_logs):
     push_cmd = f"docker push {image_name}"
-    res = subprocess.Popen(push_cmd, shell=True)
+    if show_docker_logs:
+        res = subprocess.Popen(push_cmd, shell=True)
+    else:
+        res = subprocess.Popen(
+            push_cmd, shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL
+        )
     res.wait()
