@@ -1,0 +1,29 @@
+name: Pre Commits
+
+on:
+  push:
+    branches-ignore:
+      - 'main'
+  pull_request:
+    types: [opened, reopened]
+    branches-ignore:
+      - 'main'
+
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8"]
+        poetry-version: ["1.5.1"]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pre commits
+        run: pip install pre-commit
+      - name: Run pre commits
+        run: pre-commit run --all
