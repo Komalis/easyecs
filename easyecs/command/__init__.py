@@ -1,4 +1,5 @@
 import json
+from os.path import dirname
 import subprocess
 from threading import Event, Thread
 import time
@@ -87,11 +88,10 @@ class StoppableThread(Thread):
     """Thread class with a stop() method. The thread itself has to check
     regularly for the stopped() condition."""
 
-    def __init__(self, port, root, exclude, *args, **kwargs):
+    def __init__(self, volume, port, *args, **kwargs):
         super(StoppableThread, self).__init__(*args, **kwargs)
+        self.volume = volume
         self.port = port
-        self.root = root
-        self.exclude = exclude
         self._stop = Event()
 
     def stop(self):
@@ -102,37 +102,28 @@ class StoppableThread(Thread):
 
     def run(self):
         sync_events = set(["IN_CLOSE_WRITE"])
-        i = inotify.adapters.InotifyTree(self.root)
-        cmd_tar_local = ["tar"]
-        for file in self.exclude:
-            cmd_tar_local += file
-        cmd_tar_local += [
-            "-cvzf",
-            "-",
-            self.root,
-        ]
         cmd_nc_local = ["nc", "-N", "127.0.0.1", self.port]
-        proc_tar_local = subprocess.run(
-            cmd_tar_local,
-            start_new_session=True,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            cmd_nc_local,
-            start_new_session=True,
-            input=proc_tar_local.stdout,
-            stdout=subprocess.DEVNULL,
-        )
         while True:
             if self.stopped():
                 return
+            input = self.volume.split(":")[0]
+            output = self.volume.split(":")[1]
+            input_dirname = dirname(input)
+            output_dirname = dirname(output)
+            i = inotify.adapters.InotifyTree(input_dirname)
             events = i.event_gen(yield_nones=False, timeout_s=0.1)
             for event in events:
                 (_, type_names, path, filename) = event
                 if set(type_names).issubset(sync_events):
+                    tar_cmd = [
+                        "tar",
+                        "-czvf",
+                        "-",
+                        input,
+                        f"--transform=s,{input_dirname}/,{output_dirname}/,",
+                    ]
                     proc_tar_local = subprocess.run(
-                        cmd_tar_local,
+                        tar_cmd,
                         start_new_session=True,
                         check=True,
                         capture_output=True,
@@ -148,35 +139,11 @@ class StoppableThread(Thread):
 def run_sync_thread(parsed_containers, ecs_manifest):
     containers = ecs_manifest.task_definition.containers
     for container in containers:
-        synchronize = container.synchronize
-        if synchronize:
+        if len(container.volumes) > 0:
             container_name = container.name
-            root = synchronize.root
-            exclude = [["--exclude", filename] for filename in synchronize.exclude]
             port = parsed_containers[container_name].get("netcat_port", None)
-            if port:
-                cmd_tar_local = ["tar"]
-                for file in exclude:
-                    cmd_tar_local += file
-                cmd_tar_local += [
-                    "-cvzf",
-                    "-",
-                    root,
-                ]
-                cmd_nc_local = ["nc", "-N", "127.0.0.1", port]
-                proc_tar_local = subprocess.run(
-                    cmd_tar_local,
-                    start_new_session=True,
-                    check=True,
-                    capture_output=True,
-                )
-                subprocess.run(
-                    cmd_nc_local,
-                    start_new_session=True,
-                    input=proc_tar_local.stdout,
-                    stdout=subprocess.DEVNULL,
-                )
-                t = StoppableThread(port, root, exclude)
+            for volume in container.volumes:
+                t = StoppableThread(volume, port)
                 threads.append(t)
                 t.start()
 
@@ -189,7 +156,8 @@ def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
     tty_cmd = ""
     for container in containers:
         command = container.command
-        if command:
+        tty = container.tty
+        if command and tty:
             tty = container.tty
             container_name = container.name
             container_command = container.command
@@ -257,8 +225,14 @@ def run_nc_command(parsed_containers, aws_region, aws_account, container_name):
 
     client = boto3.client("ssm")
     target = parsed_containers.get(container_name)["ssm_target"]
+    # command_server = [
+    # f"bash -c 'while true; do nc -l {random_port} | tar -xzf -; done'"
+    # ]
     command_server = [
-        f"bash -c 'while true; do nc -l {random_port} | tar -xzf -; done'"
+        f"bash -c 'while true; do rm -f /tmp/copy.tar.gz; nc -l {random_port} >"
+        " /tmp/copy.tar.gz; fc=$(cat /tmp/copy.tar.gz | tar -ztf - | head -c1); if ["
+        " $fc = . ]; then cat /tmp/copy.tar.gz | tar -xzf -; else cat /tmp/copy.tar.gz"
+        " | tar -xzf - -C /; fi; done'"
     ]
     parameters_nc_server = {"command": command_server}
     ssm_nc_server = client.start_session(
@@ -301,8 +275,7 @@ def check_nc_command(target, aws_region, aws_account):
 def run_nc_commands(parsed_containers, aws_region, aws_account, ecs_manifest):
     containers = ecs_manifest.task_definition.containers
     for container in containers:
-        synchronize = container.synchronize
-        if synchronize:
+        if len(container.volumes) > 0:
             container_name = container.name
             parsed_container = parsed_containers.get(container_name)
             ssm_target = parsed_container["ssm_target"]

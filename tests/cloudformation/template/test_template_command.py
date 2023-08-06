@@ -49,7 +49,7 @@ def _create_mock_ecs_data(container):
     return ecs_data
 
 
-def test_command_is_always_sleep_when_dev(mocker):
+def test_command_is_always_sleep_when_tty(mocker):
     magic_mock_image, mock_log_group, mocker_container, mock_health_check = (
         _setup_mocks(mocker)
     )
@@ -91,6 +91,7 @@ def test_command_is_always_sleep_when_run(mocker):
     )
 
     container = _create_mock_container()
+    container.tty = True
     ecs_data = _create_mock_ecs_data(container)
 
     create_template(

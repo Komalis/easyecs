@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 
 @pytest.mark.parametrize(
-    "volumes, count", [([], 0), ([MagicMock()], 1), ([MagicMock(), MagicMock()], 2)]
+    "efs_volumes, count", [([], 0), ([MagicMock()], 1), ([MagicMock(), MagicMock()], 2)]
 )
-def test_efs_add_mount_points_if_container_has_volumes(volumes, count, mocker):
+def test_efs_add_mount_points_if_container_has_efs_volumes(efs_volumes, count, mocker):
     mocker.patch("aws_cdk.App")
     mocker.patch("aws_cdk.BootstraplessSynthesizer")
     mocker.patch("aws_cdk.Stack")
@@ -31,9 +31,9 @@ def test_efs_add_mount_points_if_container_has_volumes(volumes, count, mocker):
     # Mock the ecs_data object. Here you may need to adjust to your specific case
     mocker_container = mocker.patch("aws_cdk.aws_ecs.FargateTaskDefinition")
     ecs_data = MagicMock()
-    ecs_data.task_definition.volumes = [MagicMock(), MagicMock()]
+    ecs_data.task_definition.efs_volumes = [MagicMock(), MagicMock()]
     container = MagicMock()
-    container.volumes = volumes
+    container.efs_volumes = efs_volumes
     ecs_data.task_definition.containers = [container]
 
     create_template(

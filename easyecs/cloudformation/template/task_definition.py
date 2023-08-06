@@ -75,7 +75,7 @@ def add_containers_to_task_definition(
             container_definition, log_configuration, run
         )
         container = task_definition.add_container(**container_config)
-        add_mount_points_to_container(container, container_definition.volumes)
+        add_mount_points_to_container(container, container_definition.efs_volumes)
         dict_container_definitions[container_definition.name] = {
             "container": container,
             "container_definition": container_definition,
@@ -95,12 +95,13 @@ def extract_container_config(container_definition, log_configuration, run):
     user = container_definition.user
     essential = container_definition.essential
     resource_limits = container_definition.resources.limits
+    tty = container_definition.tty
     cpu = resource_limits.cpu * 1024
     memory = resource_limits.memory
     entry_point = split_if_str(container_definition.entry_point)
     command = split_if_str(container_definition.command)
 
-    if not run:
+    if tty and not run:
         command = ["sleep", "infinity"]
 
     environment = {
