@@ -38,11 +38,6 @@ class EcsFileResourcesModel(BaseModel):
     limits: EcsFileLimitsModel
 
 
-class EcsFileSynchronizeModel(BaseModel):
-    root: str
-    exclude: List[str]
-
-
 class EcsFileBuildModel(BaseModel):
     dockerfile: str = "Dockerfile"
     target: Optional[str] = None
@@ -86,11 +81,11 @@ class EcsFileContainerModel(BaseModel):
     command: Union[Optional[str], Optional[List[str]]] = None
     resources: EcsFileResourcesModel
     build: Optional[EcsFileBuildModel] = None
-    synchronize: Optional[EcsFileSynchronizeModel] = None
     port_forward: List[str] = []
     env: List[EcsFileEnvModel] = []
     secrets: List[EcsFileSecretModel] = []
-    volumes: List[EcsFileVolumeModel] = []
+    efs_volumes: List[EcsFileVolumeModel] = []
+    volumes: List[str] = []
     healthcheck: Optional[EcsFileContainerHealthCheckModel] = None
     depends_on: Optional[Dict[str, Dict[str, str]]] = None
 
@@ -111,11 +106,11 @@ class EcsTaskDefinitionModel(BaseModel):
 
     @computed_field(return_type=List[EcsFileVolumeModel])
     @property
-    def volumes(self) -> List[EcsFileVolumeModel]:
-        volumes = [
-            volume for container in self.containers for volume in container.volumes
+    def efs_volumes(self) -> List[EcsFileVolumeModel]:
+        efs_volumes = [
+            volume for container in self.containers for volume in container.efs_volumes
         ]
-        return volumes
+        return efs_volumes
 
 
 class EcsFileModel(BaseModel):

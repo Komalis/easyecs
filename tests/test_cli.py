@@ -335,14 +335,14 @@ def test_cloudformation_waiter_stack_create_or_update_if_hash_same_force_redeplo
 
 
 @pytest.mark.parametrize("action", [action_dev])
-def test_run_nc_when_dev_with_synchronize(action, mocker):  # noqa: E501
+def test_run_nc_when_dev_with_volumes(action, mocker):  # noqa: E501
     mocker.patch("easyecs.cli.fetch_aws_account", return_value="aws_account")
     cache_settings = MagicMock()
     cache_settings.aws_region = "eu-west-1"
     mocker.patch("easyecs.cli.load_settings", return_value=cache_settings)
     ecs_manifest = MagicMock()
     container = MagicMock()
-    container.synchronize = True
+    container.volumes = ["./ecs.yml:./ecs.yml"]
     ecs_manifest.task_definition.containers = [container]
     mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
     mocker.patch("easyecs.cli.step_bring_up_stack")
