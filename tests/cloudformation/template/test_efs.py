@@ -25,6 +25,8 @@ def test_efs_add_mount_points_if_container_has_volumes(volumes, count, mocker):
     mocker.patch("aws_cdk.aws_ecs.EfsVolumeConfiguration")
     mocker.patch("aws_cdk.aws_ecs.MountPoint")
     mocker.patch("aws_cdk.aws_ecs.Secret.from_secrets_manager")
+    mocker.patch("aws_cdk.aws_ecs.HealthCheck")
+    mocker.patch("aws_cdk.Duration")
 
     # Mock the ecs_data object. Here you may need to adjust to your specific case
     mocker_container = mocker.patch("aws_cdk.aws_ecs.FargateTaskDefinition")
