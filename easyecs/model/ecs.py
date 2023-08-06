@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, computed_field, field_validator
 
 
@@ -68,12 +68,22 @@ class EcsFileVolumeModel(BaseModel):
     mount_point: str
 
 
+class EcsFileContainerHealthCheckModel(BaseModel):
+    command: Union[List[str], str]
+    interval: int
+    retries: int
+    start_period: int
+    timeout: int
+
+
 class EcsFileContainerModel(BaseModel):
     name: str
     image: str
     user: str = "root"
     tty: bool = False
-    command: Optional[str] = None
+    essential: bool = True
+    entry_point: Union[Optional[str], Optional[List[str]]] = None
+    command: Union[Optional[str], Optional[List[str]]] = None
     resources: EcsFileResourcesModel
     build: Optional[EcsFileBuildModel] = None
     synchronize: Optional[EcsFileSynchronizeModel] = None
@@ -81,6 +91,8 @@ class EcsFileContainerModel(BaseModel):
     env: List[EcsFileEnvModel] = []
     secrets: List[EcsFileSecretModel] = []
     volumes: List[EcsFileVolumeModel] = []
+    healthcheck: Optional[EcsFileContainerHealthCheckModel] = None
+    depends_on: Optional[Dict[str, Dict[str, str]]] = None
 
 
 class EcsTaskDefinitionModel(BaseModel):

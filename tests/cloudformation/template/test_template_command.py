@@ -22,9 +22,11 @@ def _setup_mocks(mocker):
     mocker.patch("aws_cdk.aws_ecs.EfsVolumeConfiguration")
     mocker.patch("aws_cdk.aws_ecs.MountPoint")
     mocker.patch("aws_cdk.aws_ecs.Secret.from_secrets_manager")
+    mock_health_check = mocker.patch("aws_cdk.aws_ecs.HealthCheck")
+    mocker.patch("aws_cdk.Duration")
     mocker_container = mocker.patch("aws_cdk.aws_ecs.FargateTaskDefinition")
 
-    return magic_mock_image, mock_log_group, mocker_container
+    return magic_mock_image, mock_log_group, mocker_container, mock_health_check
 
 
 def _create_mock_container():
@@ -48,7 +50,9 @@ def _create_mock_ecs_data(container):
 
 
 def test_command_is_always_sleep_when_dev(mocker):
-    magic_mock_image, mock_log_group, mocker_container = _setup_mocks(mocker)
+    magic_mock_image, mock_log_group, mocker_container, mock_health_check = (
+        _setup_mocks(mocker)
+    )
 
     container = _create_mock_container()
     ecs_data = _create_mock_ecs_data(container)
@@ -75,11 +79,16 @@ def test_command_is_always_sleep_when_dev(mocker):
         cpu=1024,
         memory_limit_mib=1024,
         user=container.user,
+        essential=container.essential,
+        health_check=mock_health_check(),
+        entry_point=container.entry_point,
     )
 
 
 def test_command_is_always_sleep_when_run(mocker):
-    magic_mock_image, mock_log_group, mocker_container = _setup_mocks(mocker)
+    magic_mock_image, mock_log_group, mocker_container, mock_health_check = (
+        _setup_mocks(mocker)
+    )
 
     container = _create_mock_container()
     ecs_data = _create_mock_ecs_data(container)
@@ -106,4 +115,7 @@ def test_command_is_always_sleep_when_run(mocker):
         cpu=1024,
         memory_limit_mib=1024,
         user=container.user,
+        essential=container.essential,
+        health_check=mock_health_check(),
+        entry_point=container.entry_point,
     )
