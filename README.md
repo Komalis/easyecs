@@ -56,6 +56,10 @@ execution_role:
       resources: ["*"]
       actions: ["secretsmanager:GetSecretValue"]
       effect: "Allow"
+    - sid: "s3actions"
+      resources: ["*"]
+      actions: ["s3:*"]
+      effect: "Allow"
 task_definition:
   resources:
     limits:
@@ -66,15 +70,14 @@ task_definition:
       image: docker.io/library/debian
       user: root
       tty: true
-      command: "sleep infinity"
+      command: "/bin/bash"
       resources:
         limits:
           cpu: 1
           memory: 2048
-      synchronize:
-        root: "."
-        exclude:
-          - ".git"
+      volumes:
+        - "./easyecs:/root/easyecs"
+        - "./ecs.yml:/root/ecs.yml"
       port_forward:
         - "8000:8000"
       env: []
