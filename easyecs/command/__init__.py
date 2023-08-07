@@ -115,12 +115,16 @@ class StoppableThread(Thread):
             for event in events:
                 (_, type_names, path, filename) = event
                 if set(type_names).issubset(sync_events):
+                    if input_dirname.startswith("/"):
+                        cmd_input_dirname = input_dirname[1:]
+                    else:
+                        cmd_input_dirname = input_dirname
                     tar_cmd = [
                         "tar",
                         "-czvf",
                         "-",
                         input,
-                        f"--transform=s,{input_dirname}/,{output_dirname}/,",
+                        f"--transform=s,{cmd_input_dirname}/,{output_dirname}/,",
                     ]
                     proc_tar_local = subprocess.run(
                         tar_cmd,

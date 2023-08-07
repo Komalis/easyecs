@@ -56,7 +56,7 @@ def add_volumes_to_task_definition(task_definition, ecs_data):
     )
 
     """Add EFS volumes to the task definition."""
-    for volume in ecs_data.task_definition.volumes:
+    for volume in ecs_data.task_definition.efs_volumes:
         efs_volume_configuration = EfsVolumeConfiguration(file_system_id=volume.id)
         task_definition.add_volume(
             name=volume.name, efs_volume_configuration=efs_volume_configuration
