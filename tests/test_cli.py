@@ -31,6 +31,7 @@ def setup_mocker(mocker):
     mocker.patch("easyecs.cloudformation.stack.create.fetch_stack_url")
     mocker.patch("easyecs.cloudformation.stack.update.fetch_stack_url")
     mocker.patch("easyecs.cloudformation.stack.delete.fetch_stack_url")
+    mocker.patch("easyecs.cloudformation.stack.waiter.get_client_cloudformation")
     mocker.patch("easyecs.cli.run_nc_commands")
     mocker.patch("easyecs.command.run_sync_thread")
     mocker.patch("easyecs.cli.execute_command")
@@ -180,6 +181,7 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
     mocker.patch("easyecs.cli.fetch_is_stack_created", return_value=True)
     mocker.patch("easyecs.cloudformation.stack.update.boto3.resource")
     mocker.patch("easyecs.cloudformation.stack.update.load_template", return_value={})
+    mocker.patch("easyecs.cloudformation.stack.update.get_client_cloudformation")
 
     error_response = {"Error": {"Code": None, "Message": "UPDATE_IN_PROGRESS"}}
     mocker.patch(
@@ -191,7 +193,7 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
 
     mock = MagicMock()
     mocker.patch(
-        "easyecs.cloudformation.stack.update.get_client_cloudformation",
+        "easyecs.cloudformation.stack.waiter.get_client_cloudformation",
         return_value=mock,
     )
 
@@ -208,6 +210,7 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
     mocker.patch("easyecs.cli.fetch_is_stack_created", return_value=True)
     mocker.patch("easyecs.cloudformation.stack.update.boto3.resource")
     mocker.patch("easyecs.cloudformation.stack.update.load_template", return_value={})
+    mocker.patch("easyecs.cloudformation.stack.update.get_client_cloudformation")
 
     error_response = {"Error": {"Code": None, "Message": "ROLLBACK_IN_PROGRESS"}}
     mocker.patch(
@@ -219,7 +222,7 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
 
     mock = MagicMock()
     mocker.patch(
-        "easyecs.cloudformation.stack.update.get_client_cloudformation",
+        "easyecs.cloudformation.stack.waiter.get_client_cloudformation",
         return_value=mock,
     )
 
@@ -236,6 +239,7 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
     mocker.patch("easyecs.cli.fetch_is_stack_created", return_value=True)
     mocker.patch("easyecs.cloudformation.stack.update.boto3.resource")
     mocker.patch("easyecs.cloudformation.stack.update.load_template", return_value={})
+    mocker.patch("easyecs.cloudformation.stack.update.get_client_cloudformation")
 
     error_response = {"Error": {"Code": None, "Message": "CREATE_IN_PROGRESS"}}
     mocker.patch(
@@ -247,7 +251,7 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
 
     mock = MagicMock()
     mocker.patch(
-        "easyecs.cloudformation.stack.update.get_client_cloudformation",
+        "easyecs.cloudformation.stack.waiter.get_client_cloudformation",
         return_value=mock,
     )
 
@@ -264,10 +268,11 @@ def test_cloudformation_waiter_stack_update_complete_is_called_stack_created(  #
     mocker.patch("easyecs.cli.fetch_is_stack_created", return_value=True)
     mocker.patch("easyecs.cloudformation.stack.update.boto3.resource")
     mocker.patch("easyecs.cloudformation.stack.update.load_template", return_value={})
+    mocker.patch("easyecs.cloudformation.stack.update.get_client_cloudformation")
 
     mock = MagicMock()
     mocker.patch(
-        "easyecs.cloudformation.stack.update.get_client_cloudformation",
+        "easyecs.cloudformation.stack.waiter.get_client_cloudformation",
         return_value=mock,
     )
 

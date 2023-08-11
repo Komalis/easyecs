@@ -2,22 +2,14 @@ import boto3
 from botocore.utils import ClientError
 from easyecs.cloudformation.client import get_client_cloudformation
 from easyecs.cloudformation.fetch import fetch_stack_url
-from easyecs.cloudformation.stack.update import (
+from easyecs.cloudformation.stack.waiter import (
     wait_for_stack_create,
+    wait_for_stack_delete,
     wait_for_stack_rollback,
 )
 from easyecs.helpers.color import Color
 
 from easyecs.helpers.loader import Loader
-
-
-def wait_for_stack_delete(stack_name: str):
-    """
-    Waits for the CloudFormation stack to be deleted.
-    """
-    client = get_client_cloudformation()
-    waiter = client.get_waiter("stack_delete_complete")
-    waiter.wait(StackName=stack_name)
 
 
 def handle_delete_error(e: ClientError, stack_name: str, loader: Loader):
@@ -32,7 +24,7 @@ def handle_delete_error(e: ClientError, stack_name: str, loader: Loader):
         stack = cloudformation.Stack(stack_name)
         stack.cancel_update()
         wait_for_stack_rollback(stack_name)
-        delete_stack(stack_name)
+        delete_cloudformation_stack(stack_name)
         loader.stop()
     elif "CREATE_FAILED" in message:
         print(f"{Color.RED}Creation failed, please check CloudFormation.{Color.END}")

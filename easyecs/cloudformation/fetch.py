@@ -111,9 +111,16 @@ def fetch_containers(user, app_name):
     return parsed_containers
 
 
+def fetch_session_region():
+    my_session = boto3.session.Session()
+    region_name = my_session.region_name
+    return region_name
+
+
 def fetch_stack_url(stack_name):
     client = boto3.client("cloudformation")
     res = client.describe_stacks(StackName=stack_name)
     stack_arn = res["Stacks"][0]["StackId"]
-    url = f"https://eu-west-1.console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/stackinfo?stackId={stack_arn}"  # noqa: E501
+    region_name = fetch_session_region()
+    url = f"https://{region_name}.console.aws.amazon.com/cloudformation/home?region={region_name}#/stacks/stackinfo?stackId={stack_arn}"  # noqa: E501
     return url
