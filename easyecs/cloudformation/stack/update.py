@@ -3,6 +3,7 @@ from typing import Dict
 import boto3
 from botocore.utils import ClientError
 from easyecs.cloudformation.client import get_client_cloudformation
+from easyecs.cloudformation.fetch import fetch_stack_url
 from easyecs.command import run_force_new_deployment
 
 from easyecs.helpers.color import Color
@@ -94,6 +95,7 @@ def update_stack(stack_name: str, force_redeployment: bool):
     loader.start()
 
     cloudformation_template = load_template(stack_name)
+    loader.set_metadata(f"Cloudformation URL: {fetch_stack_url(stack_name)}")
 
     while True:
         try:

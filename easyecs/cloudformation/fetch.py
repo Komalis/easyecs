@@ -109,3 +109,11 @@ def fetch_containers(user, app_name):
         container["ssm_target"] = target
     parsed_containers = convert_containers_to_dict(containers)
     return parsed_containers
+
+
+def fetch_stack_url(stack_name):
+    client = boto3.client("cloudformation")
+    res = client.describe_stacks(StackName=stack_name)
+    stack_arn = res["Stacks"][0]["StackId"]
+    url = f"https://eu-west-1.console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/stackinfo?stackId={stack_arn}"  # noqa: E501
+    return url

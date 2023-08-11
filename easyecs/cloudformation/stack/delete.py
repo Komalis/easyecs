@@ -1,4 +1,5 @@
 import boto3
+from easyecs.cloudformation.fetch import fetch_stack_url
 from easyecs.helpers.color import Color
 
 from easyecs.helpers.loader import Loader
@@ -21,6 +22,7 @@ def delete_stack(stack_name):
 
     try:
         # Attempt to delete the CloudFormation stack
+        loader.set_metadata(f"Cloudformation URL: {fetch_stack_url(stack_name)}")
         client.delete_stack(StackName=stack_name)
 
         # Initialize a waiter for the 'stack_delete_complete' event
