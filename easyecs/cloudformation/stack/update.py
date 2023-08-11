@@ -3,6 +3,12 @@ from typing import Dict
 import boto3
 from botocore.utils import ClientError
 from easyecs.cloudformation.client import get_client_cloudformation
+from easyecs.cloudformation.fetch import fetch_stack_url
+from easyecs.cloudformation.stack.waiter import (
+    wait_for_stack_create,
+    wait_for_stack_rollback,
+    wait_for_stack_update,
+)
 from easyecs.command import run_force_new_deployment
 
 from easyecs.helpers.color import Color
@@ -20,34 +26,6 @@ def update_cloudformation_stack(stack_name: str, template_body: Dict):
         TemplateBody=json.dumps(template_body),
         Capabilities=["CAPABILITY_NAMED_IAM"],
     )
-
-
-def wait_for_stack_update(stack_name: str):
-    """
-    Waits for the CloudFormation stack to be updated.
-    Throws an exception if the update fails.
-    """
-    client = get_client_cloudformation()
-    waiter = client.get_waiter("stack_update_complete")
-    waiter.wait(StackName=stack_name)
-
-
-def wait_for_stack_rollback(stack_name: str):
-    """
-    Waits for the CloudFormation stack to be rolled back.
-    """
-    client = get_client_cloudformation()
-    waiter = client.get_waiter("stack_rollback_complete")
-    waiter.wait(StackName=stack_name)
-
-
-def wait_for_stack_create(stack_name: str):
-    """
-    Waits for the CloudFormation stack to be created.
-    """
-    client = get_client_cloudformation()
-    waiter = client.get_waiter("stack_create_complete")
-    waiter.wait(StackName=stack_name)
 
 
 def handle_update_error(
@@ -94,12 +72,11 @@ def update_stack(stack_name: str, force_redeployment: bool):
     loader.start()
 
     cloudformation_template = load_template(stack_name)
+    loader.set_metadata(f"Cloudformation URL: {fetch_stack_url(stack_name)}")
 
-    while True:
-        try:
-            update_cloudformation_stack(stack_name, cloudformation_template)
-            wait_for_stack_update(stack_name)
-            loader.stop()
-        except ClientError as e:
-            handle_update_error(e, stack_name, force_redeployment, loader)
-        break
+    try:
+        update_cloudformation_stack(stack_name, cloudformation_template)
+        wait_for_stack_update(stack_name)
+        loader.stop()
+    except ClientError as e:
+        handle_update_error(e, stack_name, force_redeployment, loader)

@@ -15,7 +15,6 @@ from easyecs.command import (
     run_nc_commands,
     create_port_forwards,
     execute_command,
-    run_sync_thread,
     popen_procs_port_forward,
     popen_procs_exec_command,
     threads,
@@ -237,7 +236,6 @@ def action_dev(ctx):
     print()
     create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers)
     run_nc_commands(parsed_containers, aws_region, aws_account, ecs_manifest)
-    run_sync_thread(parsed_containers, ecs_manifest)
     print()
 
     found_tty = execute_command(

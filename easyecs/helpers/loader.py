@@ -22,6 +22,7 @@ class Loader:
         self.error = error
         self.timeout = timeout
         self.time = 0
+        self.metadata = None
 
         self._thread = Thread(target=self._animate, daemon=True)
         self.steps = ["⢿", "⣻", "⣽", "⣾", "⣷", "⣯", "⣟", "⡿"]
@@ -35,28 +36,45 @@ class Loader:
         for c in cycle(self.steps):
             if self.done:
                 break
-            print(
-                f"\r{self.desc} {c} {Color.GRAY}[{floor(self.time)}s]{Color.END}",
-                flush=True,
-                end="",
-            )
+            if not self.metadata:
+                print(
+                    f"\r{self.desc} {c} {Color.GRAY}[{floor(self.time)}s]{Color.END}",
+                    flush=True,
+                    end="",
+                )
+            else:
+                print(f"\r{self.metadata}", flush=True)
+                self.metadata = None
             sleep(self.timeout)
             self.time += self.timeout
 
     def __enter__(self):
         self.start()
 
+    def set_metadata(self, metadata):
+        self.metadata = metadata
+
     def stop(self):
         self.done = True
         cols = get_terminal_size((80, 20)).columns
         print("\r" + " " * cols, end="", flush=True)
-        print(f"\r{self.end} [{floor(self.time)}s]", flush=True)
+        if not self.metadata:
+            print(f"\r{self.end} [{floor(self.time)}s]", flush=True)
+        else:
+            print(f"\r{self.metadata}", flush=True)
+            print(f"\r{self.end} [{floor(self.time)}s]")
+            self.metadata = None
 
     def stop_error(self):
         self.done = True
         cols = get_terminal_size((80, 20)).columns
         print("\r" + " " * cols, end="", flush=True)
-        print(f"\r{self.error}", flush=True)
+        if not self.metadata:
+            print(f"\r{self.error}", flush=True)
+        else:
+            print(f"\r{self.metadata}", flush=True)
+            print(f"\r{self.error}")
+            self.metadata = None
 
     def __exit__(self, exc_type, exc_value, tb):
         # handle exceptions with those variables ^

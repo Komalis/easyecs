@@ -3,6 +3,7 @@ from typing import Dict
 
 from botocore.waiter import WaiterError
 from easyecs.cloudformation.client import get_client_cloudformation
+from easyecs.cloudformation.fetch import fetch_stack_url
 from easyecs.cloudformation.stack.delete import delete_stack
 
 from easyecs.helpers.color import Color
@@ -58,6 +59,7 @@ def create_stack(stack_name: str):
     try:
         cloudformation_template = load_template(stack_name)
         create_cloudformation_stack(stack_name, cloudformation_template)
+        loader.set_metadata(f"Cloudformation URL: {fetch_stack_url(stack_name)}")
         wait_for_stack_creation(stack_name)
     except WaiterError as e:
         handle_stack_creation_failure(e, stack_name)
