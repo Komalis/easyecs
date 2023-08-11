@@ -4,6 +4,7 @@ import boto3
 from botocore.utils import ClientError
 from easyecs.cloudformation.client import get_client_cloudformation
 from easyecs.cloudformation.fetch import fetch_stack_url
+from easyecs.cloudformation.stack import wait_for_stack_status
 from easyecs.command import run_force_new_deployment
 
 from easyecs.helpers.color import Color
@@ -21,34 +22,6 @@ def update_cloudformation_stack(stack_name: str, template_body: Dict):
         TemplateBody=json.dumps(template_body),
         Capabilities=["CAPABILITY_NAMED_IAM"],
     )
-
-
-def wait_for_stack_update(stack_name: str):
-    """
-    Waits for the CloudFormation stack to be updated.
-    Throws an exception if the update fails.
-    """
-    client = get_client_cloudformation()
-    waiter = client.get_waiter("stack_update_complete")
-    waiter.wait(StackName=stack_name)
-
-
-def wait_for_stack_rollback(stack_name: str):
-    """
-    Waits for the CloudFormation stack to be rolled back.
-    """
-    client = get_client_cloudformation()
-    waiter = client.get_waiter("stack_rollback_complete")
-    waiter.wait(StackName=stack_name)
-
-
-def wait_for_stack_create(stack_name: str):
-    """
-    Waits for the CloudFormation stack to be created.
-    """
-    client = get_client_cloudformation()
-    waiter = client.get_waiter("stack_create_complete")
-    waiter.wait(StackName=stack_name)
 
 
 def handle_update_error(
@@ -69,13 +42,22 @@ def handle_update_error(
         cloudformation = boto3.resource("cloudformation")
         stack = cloudformation.Stack(stack_name)
         stack.cancel_update()
-        wait_for_stack_rollback(stack_name)
+        wait_for_stack_status(stack_name, "stack_rollback_complete")
+        update_stack(stack_name, force_redeployment)
+        loader.stop()
+    elif "CREATE_FAILED" in message:
+        print(f"{Color.RED}Creation failed, please check CloudFormation.{Color.END}")
+        loader.stop()
+    elif "ROLLBACK_FAILED" in message:
+        print(f"{Color.RED}Rollback failed, please check CloudFormation.{Color.END}")
         loader.stop()
     elif "ROLLBACK_IN_PROGRESS" in message:
-        wait_for_stack_rollback(stack_name)
+        wait_for_stack_status(stack_name, "stack_rollback_complete")
+        update_stack(stack_name, force_redeployment)
         loader.stop()
     elif "CREATE_IN_PROGRESS" in message:
-        wait_for_stack_create(stack_name)
+        wait_for_stack_status(stack_name, "stack_create_complete")
+        update_stack(stack_name, force_redeployment)
         loader.stop()
     else:
         loader.stop_error()
@@ -95,13 +77,11 @@ def update_stack(stack_name: str, force_redeployment: bool):
     loader.start()
 
     cloudformation_template = load_template(stack_name)
-    loader.set_metadata(f"Cloudformation URL: {fetch_stack_url(stack_name)}")
 
-    while True:
-        try:
-            update_cloudformation_stack(stack_name, cloudformation_template)
-            wait_for_stack_update(stack_name)
-            loader.stop()
-        except ClientError as e:
-            handle_update_error(e, stack_name, force_redeployment, loader)
-        break
+    try:
+        loader.set_metadata(f"Cloudformation URL: {fetch_stack_url(stack_name)}")
+        update_cloudformation_stack(stack_name, cloudformation_template)
+        wait_for_stack_status(stack_name, "stack_update_complete")
+        loader.stop()
+    except ClientError as e:
+        handle_update_error(e, stack_name, force_redeployment, loader)
