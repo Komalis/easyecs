@@ -305,6 +305,7 @@ def run_nc_commands(parsed_containers, aws_region, aws_account, ecs_manifest):
                 run_nc_command(
                     parsed_containers, aws_region, aws_account, container_name
                 )
+                run_sync_thread(parsed_containers, ecs_manifest)
                 loader.stop()
 
 
