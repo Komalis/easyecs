@@ -23,6 +23,10 @@ EasyECS is an innovative container deployment tool designed to streamline the pr
 pip install easyecs
 ```
 
+## Dependencies
+
+- NodeJS needs to be installed on your machine for AWS CDK to work.
+
 ## How to use
 
 ```
