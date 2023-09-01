@@ -18,7 +18,7 @@ def create_task_definition(
 
     # Add containers to task definition
     dict_container_definitions = add_containers_to_task_definition(
-        task_definition, ecs_data, log_configuration, run
+        stack, task_definition, ecs_data, log_configuration, run
     )
 
     # Add dependencies between containers
@@ -64,7 +64,7 @@ def add_volumes_to_task_definition(task_definition, ecs_data):
 
 
 def add_containers_to_task_definition(
-    task_definition, ecs_data, log_configuration, run
+    stack, task_definition, ecs_data, log_configuration, run
 ):
     """Add containers to the task definition."""
     container_definitions = ecs_data.task_definition.containers
@@ -72,7 +72,7 @@ def add_containers_to_task_definition(
 
     for container_definition in container_definitions:
         container_config = extract_container_config(
-            container_definition, log_configuration, run
+            stack, container_definition, log_configuration, run
         )
         container = task_definition.add_container(**container_config)
         add_mount_points_to_container(container, container_definition.efs_volumes)
@@ -84,7 +84,7 @@ def add_containers_to_task_definition(
     return dict_container_definitions
 
 
-def extract_container_config(container_definition, log_configuration, run):
+def extract_container_config(stack, container_definition, log_configuration, run):
     from aws_cdk.aws_ecs import (
         ContainerImage,
     )
@@ -110,7 +110,7 @@ def extract_container_config(container_definition, log_configuration, run):
         if env_definition.active
     }
 
-    secrets = extract_secrets(container_definition.secrets, name)
+    secrets = extract_secrets(stack, container_definition.secrets, name)
 
     health_check = extract_health_check(container_definition.healthcheck)
 
@@ -136,7 +136,7 @@ def split_if_str(value):
     return value.split(" ") if isinstance(value, str) else value
 
 
-def extract_secrets(secret_definitions, container_name):
+def extract_secrets(stack, secret_definitions, container_name):
     from aws_cdk.aws_secretsmanager import Secret
     from aws_cdk.aws_ecs import (
         Secret as ECSSecret,
@@ -147,7 +147,7 @@ def extract_secrets(secret_definitions, container_name):
     for secret_definition in secret_definitions:
         secret_name = secret_definition.name
         secret = Secret.from_secret_complete_arn(
-            container_name, f"{secret_name}_{container_name}", secret_definition.arn
+            stack, f"{secret_name}_{container_name}", secret_definition.arn
         )
         ecs_secret = ECSSecret.from_secrets_manager(secret, secret_definition.field)
         secrets[secret_name] = ecs_secret
