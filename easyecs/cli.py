@@ -112,6 +112,7 @@ def step_clean_exit():
 
     for thread in threads:
         thread.stop()
+        thread.join()
 
     for popen_proc in popen_procs_exec_command:
         popen_proc.stdin.write("exit\x03\x04".encode("utf8"))
