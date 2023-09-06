@@ -1,11 +1,10 @@
-import datetime
 import json
-from os.path import dirname
 import subprocess
 import time
 import boto3
 import signal
-import pyinotify
+from watchdog.observers import Observer
+from easyecs.command.event.synchronize_event_handler import SynchronizeEventHandler
 from easyecs.helpers.color import Color
 from easyecs.helpers.common import generate_random_port, is_port_in_use
 from easyecs.helpers.loader import Loader
@@ -84,76 +83,19 @@ def port_forward(
         popen_procs_port_forward.append(process)
 
 
-class CopyThreadedNotifier(pyinotify.ThreadedNotifier):
-    def __init__(
-        self,
-        watch_manager,
-        volume,
-        default_proc_fun=None,
-        read_freq=0,
-        threshold=0,
-        timeout=None,
-    ):
-        super().__init__(watch_manager, default_proc_fun, read_freq, threshold, timeout)
-        input = volume.split(":")[0]
-        watch_manager.add_watch(input, pyinotify.IN_MODIFY, rec=True, auto_add=True)
-
-
-class Identity(pyinotify.ProcessEvent):
-    def __init__(self, volume, port, pevent=None, **kwargs):
-        super().__init__(pevent, **kwargs)
-        self.volume = volume
-        self.port = port
-        self.input = volume.split(":")[0]
-        self.output = volume.split(":")[1]
-        self.input_dirname = dirname(self.input)
-        self.output_dirname = dirname(self.output)
-        self.last_event = datetime.datetime.now().timestamp()
-
-    def process_default(self, event):
-        delta = datetime.datetime.now().timestamp() - self.last_event
-        if delta >= 1:
-            cmd_nc_local = ["nc", "-N", "127.0.0.1", self.port]
-            if self.input_dirname.startswith("/"):
-                cmd_input_dirname = self.input_dirname[1:]
-            else:
-                cmd_input_dirname = self.input_dirname
-            tar_cmd = [
-                "tar",
-                "-czvf",
-                "-",
-                self.input,
-                f"--transform=s,{cmd_input_dirname}/,{self.output_dirname}/,",
-            ]
-            proc_tar_local = subprocess.run(
-                tar_cmd,
-                start_new_session=True,
-                check=True,
-                capture_output=True,
-            )
-            subprocess.run(
-                cmd_nc_local,
-                start_new_session=True,
-                input=proc_tar_local.stdout,
-                stdout=subprocess.DEVNULL,
-            )
-            self.last_event = datetime.datetime.now().timestamp()
-
-
 def run_sync_thread(parsed_containers, ecs_manifest):
     containers = ecs_manifest.task_definition.containers
     for container in containers:
         if len(container.volumes) > 0:
+            observer = Observer()
             container_name = container.name
             port = parsed_containers[container_name].get("netcat_port", None)
             for volume in container.volumes:
-                wm1 = pyinotify.WatchManager()
-                s1 = pyinotify.Stats()  # Stats is a subclass of ProcessEvent
-                notifier1 = CopyThreadedNotifier(
-                    wm1, volume, default_proc_fun=Identity(volume, port, pevent=s1)
-                )
-                notifier1.daemon = True
-                notifier1.start()
+                event_handler = SynchronizeEventHandler(volume, port)
+                observer.schedule(event_handler, ".", recursive=True)
+            observer.daemon = True
+            observer.start()
+            threads.append(observer)
 
 
 def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
