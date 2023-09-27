@@ -62,36 +62,41 @@ def create_task_role(stack, service_name, ecs_manifest):
         Role,
     )
 
-    role_name = f"{service_name}-task-role"
-    policy_name = f"{service_name}-task-role-policy"
-    assumed_by = ServicePrincipal("ecs-tasks.amazonaws.com")
-    managed_policies_raw = ecs_manifest.role.managed_policies
-    managed_policies = [
-        ManagedPolicy.from_aws_managed_policy_name(managed_policy)
-        for managed_policy in managed_policies_raw
-    ]
-    policy_statements_raw = ecs_manifest.role.statements
-    policy_statements = [
-        PolicyStatement(
-            sid=policy_statement.sid,
-            actions=policy_statement.actions,
-            resources=policy_statement.resources,
-            effect=(
-                Effect.ALLOW if policy_statement.effect == "Allow" else Effect.DENY
-            ),
+    if ecs_manifest.role.arn:
+        return Role.from_role_arn(
+            scope=stack, id=ecs_manifest.role.arn, role_arn=ecs_manifest.role.arn
         )
-        for policy_statement in policy_statements_raw
-    ]
-    inline_policies = PolicyDocument(statements=policy_statements)
-    role: Role = Role(
-        stack,
-        role_name,
-        assumed_by=assumed_by,
-        inline_policies={policy_name: inline_policies},
-        managed_policies=managed_policies,
-    )
-    role.without_policy_updates()
-    return role
+    else:
+        role_name = f"{service_name}-task-role"
+        policy_name = f"{service_name}-task-role-policy"
+        assumed_by = ServicePrincipal("ecs-tasks.amazonaws.com")
+        managed_policies_raw = ecs_manifest.role.managed_policies
+        managed_policies = [
+            ManagedPolicy.from_aws_managed_policy_name(managed_policy)
+            for managed_policy in managed_policies_raw
+        ]
+        policy_statements_raw = ecs_manifest.role.statements
+        policy_statements = [
+            PolicyStatement(
+                sid=policy_statement.sid,
+                actions=policy_statement.actions,
+                resources=policy_statement.resources,
+                effect=(
+                    Effect.ALLOW if policy_statement.effect == "Allow" else Effect.DENY
+                ),
+            )
+            for policy_statement in policy_statements_raw
+        ]
+        inline_policies = PolicyDocument(statements=policy_statements)
+        role: Role = Role(
+            stack,
+            role_name,
+            assumed_by=assumed_by,
+            inline_policies={policy_name: inline_policies},
+            managed_policies=managed_policies,
+        )
+        role.without_policy_updates()
+        return role
 
 
 def create_execution_task_role(stack, service_name, ecs_manifest):
@@ -104,36 +109,43 @@ def create_execution_task_role(stack, service_name, ecs_manifest):
         Role,
     )
 
-    role_name = f"{service_name}-execution-task-role"
-    policy_name = f"{service_name}-execution-task-role-policy"
-    assumed_by = ServicePrincipal("ecs-tasks.amazonaws.com")
-    managed_policies_raw = ecs_manifest.execution_role.managed_policies
-    managed_policies = [
-        ManagedPolicy.from_aws_managed_policy_name(managed_policy)
-        for managed_policy in managed_policies_raw
-    ]
-    policy_statements_raw = ecs_manifest.execution_role.statements
-    policy_statements = [
-        PolicyStatement(
-            sid=policy_statement.sid,
-            actions=policy_statement.actions,
-            resources=policy_statement.resources,
-            effect=(
-                Effect.ALLOW if policy_statement.effect == "Allow" else Effect.DENY
-            ),
+    if ecs_manifest.execution_role.arn:
+        return Role.from_role_arn(
+            scope=stack,
+            id=ecs_manifest.execution_role.arn,
+            role_arn=ecs_manifest.execution_role.arn,
         )
-        for policy_statement in policy_statements_raw
-    ]
-    inline_policies = PolicyDocument(statements=policy_statements)
-    role: Role = Role(
-        stack,
-        role_name,
-        assumed_by=assumed_by,
-        inline_policies={policy_name: inline_policies},
-        managed_policies=managed_policies,
-    )
-    role.without_policy_updates()
-    return role
+    else:
+        role_name = f"{service_name}-execution-task-role"
+        policy_name = f"{service_name}-execution-task-role-policy"
+        assumed_by = ServicePrincipal("ecs-tasks.amazonaws.com")
+        managed_policies_raw = ecs_manifest.execution_role.managed_policies
+        managed_policies = [
+            ManagedPolicy.from_aws_managed_policy_name(managed_policy)
+            for managed_policy in managed_policies_raw
+        ]
+        policy_statements_raw = ecs_manifest.execution_role.statements
+        policy_statements = [
+            PolicyStatement(
+                sid=policy_statement.sid,
+                actions=policy_statement.actions,
+                resources=policy_statement.resources,
+                effect=(
+                    Effect.ALLOW if policy_statement.effect == "Allow" else Effect.DENY
+                ),
+            )
+            for policy_statement in policy_statements_raw
+        ]
+        inline_policies = PolicyDocument(statements=policy_statements)
+        role: Role = Role(
+            stack,
+            role_name,
+            assumed_by=assumed_by,
+            inline_policies={policy_name: inline_policies},
+            managed_policies=managed_policies,
+        )
+        role.without_policy_updates()
+        return role
 
 
 def create_ecs_cluster(stack, service_name, vpc):
