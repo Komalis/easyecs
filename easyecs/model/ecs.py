@@ -16,8 +16,9 @@ class EcsFileStatementModel(BaseModel):
 
 
 class EcsFileRoleModel(BaseModel):
+    arn: Optional[str] = None
     managed_policies: List[str] = []
-    statements: List[EcsFileStatementModel]
+    statements: List[EcsFileStatementModel] = []
 
     @field_validator("statements")
     def validate_unique_sid(cls, statements):
