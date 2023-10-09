@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "easyecs"
-version = "0.9.1"
+version = "0.10.0"
 description = ""
 authors = ["BONVARLET Benjamin <benjaminbonvarlet96@gmail.com>"]
 readme = "README.md"

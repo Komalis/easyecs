@@ -1,7 +1,27 @@
 import datetime
-from os.path import dirname
-import subprocess
+from os.path import dirname, basename
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
+import tarfile
+import socket
+
+
+def create_tar_for_sync(input, output_dirname):
+    with tarfile.open("/tmp/copy.tar.gz", "w:gz") as f:
+        filename = basename(input)
+        f.add(input, arcname=f"{output_dirname}/{filename}")
+
+
+def netcat(hostname, port, content):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((hostname, port))
+    s.sendall(content)
+    s.shutdown(socket.SHUT_WR)
+    while 1:
+        data = s.recv(1024)
+        if len(data) == 0:
+            break
+        print("Received:", repr(data))
+    s.close()
 
 
 class SynchronizeEventHandler(FileSystemEventHandler):
@@ -16,30 +36,10 @@ class SynchronizeEventHandler(FileSystemEventHandler):
         self.last_event = datetime.datetime.now().timestamp()
 
     def synchronize(self):
-        cmd_nc_local = ["nc", "-N", "127.0.0.1", self.port]
-        if self.input_dirname.startswith("/"):
-            cmd_input_dirname = self.input_dirname[1:]
-        else:
-            cmd_input_dirname = self.input_dirname
-        tar_cmd = [
-            "tar",
-            "-czvf",
-            "-",
-            self.input,
-            f"--transform=s,{cmd_input_dirname}/,{self.output_dirname}/,",
-        ]
-        proc_tar_local = subprocess.run(
-            tar_cmd,
-            start_new_session=True,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            cmd_nc_local,
-            start_new_session=True,
-            input=proc_tar_local.stdout,
-            stdout=subprocess.DEVNULL,
-        )
+        create_tar_for_sync(self.input, self.output_dirname)
+        f = open("/tmp/copy.tar.gz", "rb")
+        data = f.read()
+        netcat("127.0.0.1", int(self.port), data)
 
     def dispatch(self, event: FileSystemEvent):
         delta = datetime.datetime.now().timestamp() - self.last_event
@@ -52,7 +52,7 @@ class SynchronizeEventHandler(FileSystemEventHandler):
                         super().dispatch(event)
                         self.last_event = datetime.datetime.now().timestamp()
                 else:
-                    if event_src in self.input:
+                    if basename(event_src) in basename(self.input):
                         self.synchronize()
                         super().dispatch(event)
                         self.last_event = datetime.datetime.now().timestamp()
