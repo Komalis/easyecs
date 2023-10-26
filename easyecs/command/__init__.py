@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import time
 import boto3
@@ -179,10 +180,10 @@ def run_nc_command(parsed_containers, aws_region, aws_account, container_name):
     # f"bash -c 'while true; do nc -l {random_port} | tar -xzf -; done'"
     # ]
     command_server = [
-        f"bash -c 'while true; do rm -f /tmp/copy.tar.gz; nc -l {random_port} >"
-        " /tmp/copy.tar.gz; fc=$(cat /tmp/copy.tar.gz | tar -ztf - | head -c1); if ["
-        " $fc = . ]; then cat /tmp/copy.tar.gz | tar -xzf -; else cat /tmp/copy.tar.gz"
-        " | tar -xzf - -C /; fi; done'"
+        f"bash -c 'while true; do nc -q1 -v -l {random_port} > /tmp/copy.tar.gz.tmp; cp"
+        " /tmp/copy.tar.gz.tmp /tmp/copy.tar.gz; fc=$(cat /tmp/copy.tar.gz | tar -ztf"
+        " - | head -c1); if [ $fc = . ]; then cat /tmp/copy.tar.gz | tar -xzf -; else"
+        " cat /tmp/copy.tar.gz | tar -xzf - -C /; fi; done'"
     ]
     parameters_nc_server = {"command": command_server}
     ssm_nc_server = client.start_session(
@@ -191,12 +192,20 @@ def run_nc_command(parsed_containers, aws_region, aws_account, container_name):
         Parameters=parameters_nc_server,
     )
     cmd_nc_server = generate_ssm_cmd(ssm_nc_server, aws_region, aws_account, target)
-    proc_nc_server = subprocess.Popen(
-        cmd_nc_server,
-        start_new_session=True,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.DEVNULL,
-    )
+    DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
+    if DEBUG_EASYECS:
+        proc_nc_server = subprocess.Popen(
+            cmd_nc_server,
+            start_new_session=True,
+            stdin=subprocess.PIPE,
+        )
+    else:
+        proc_nc_server = subprocess.Popen(
+            cmd_nc_server,
+            start_new_session=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+        )
     popen_procs_port_forward.append(proc_nc_server)
 
 
