@@ -49,12 +49,12 @@ class SynchronizeEventHandler(FileSystemEventHandler):
             if event.event_type in ["modified", "created", "moved", "deleted"]:
                 if not os.path.isdir(event_src):
                     if os.path.isdir(self.input):
-                        if self.input in event_src:
+                        if os.path.abspath(self.input) in os.path.abspath(event_src):
                             self.synchronize()
                             super().dispatch(event)
                             self.last_event = datetime.datetime.now().timestamp()
                     else:
-                        if event_src in self.input:
+                        if os.path.abspath(event_src) in os.path.abspath(self.input):
                             self.synchronize()
                             super().dispatch(event)
                             self.last_event = datetime.datetime.now().timestamp()
