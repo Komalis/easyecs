@@ -1,4 +1,5 @@
 import datetime
+import os
 from os.path import dirname, basename
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 import tarfile
@@ -46,13 +47,14 @@ class SynchronizeEventHandler(FileSystemEventHandler):
         if delta >= 1:
             event_src = event.src_path
             if event.event_type in ["modified", "created", "moved", "deleted"]:
-                if event.is_directory:
-                    if self.input in event_src:
-                        self.synchronize()
-                        super().dispatch(event)
-                        self.last_event = datetime.datetime.now().timestamp()
-                else:
-                    if basename(event_src) in basename(self.input):
-                        self.synchronize()
-                        super().dispatch(event)
-                        self.last_event = datetime.datetime.now().timestamp()
+                if not os.path.isdir(event_src):
+                    if os.path.isdir(self.input):
+                        if self.input in event_src:
+                            self.synchronize()
+                            super().dispatch(event)
+                            self.last_event = datetime.datetime.now().timestamp()
+                    else:
+                        if event_src in self.input:
+                            self.synchronize()
+                            super().dispatch(event)
+                            self.last_event = datetime.datetime.now().timestamp()
