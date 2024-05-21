@@ -19,7 +19,7 @@ def docker_build_cmd(build, image_name):
         build_cmd += f" {target}"
     if build.args:
         build_cmd += f" {build_args_str}"
-    build_cmd += " --platform=linux/amd64 "
+    build_cmd += " --platform=linux/amd64"
     build_cmd += " ."
     return build_cmd
 
