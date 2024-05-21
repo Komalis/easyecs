@@ -12,7 +12,7 @@ def docker_build_cmd(build, image_name):
     build_args_str = " ".join(
         [f'--build-arg {key}="{value}"' for key, value in build_args.items()]
     )
-    build_cmd = f"docker build -t {image_name}"
+    build_cmd = f"docker buildx build -t {image_name}"
     if dockerfile:
         build_cmd += f" -f {dockerfile}"
     if target:
