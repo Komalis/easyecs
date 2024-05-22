@@ -41,8 +41,8 @@ def test_docker_command_without_dockerfile():
     image_name = "test_image"
 
     expected_command = (
-        'docker buildx build -t test_image --target dev --build-arg ARG1="VALUE1" --build-arg'
-        ' ARG2="VALUE2" --platform=linux/amd64 .'
+        'docker buildx build -t test_image --target dev --build-arg ARG1="VALUE1"'
+        ' --build-arg ARG2="VALUE2" --platform=linux/amd64 .'
     )
     assert docker_build_cmd(build, image_name) == expected_command
 
@@ -54,5 +54,8 @@ def test_docker_command_without_args():
     build.target = "dev"
     image_name = "test_image"
 
-    expected_command = "docker buildx build -t test_image -f Dockerfile.dev --target dev --platform=linux/amd64 ."
+    expected_command = (
+        "docker buildx build -t test_image -f Dockerfile.dev --target dev"
+        " --platform=linux/amd64 ."
+    )
     assert docker_build_cmd(build, image_name) == expected_command
