@@ -18,6 +18,7 @@ from easyecs.command import (
     popen_procs_port_forward,
     popen_procs_exec_command,
     threads,
+    event_handlers,
 )
 from easyecs.docker import build_docker_image
 from easyecs.helpers.color import Color
@@ -206,6 +207,7 @@ def action_dev(ctx):
     no_docker_build = ctx.obj["no_docker_build"]
     force_redeployment = ctx.obj["force_redeployment"]
     show_docker_logs = ctx.obj["show_docker_logs"]
+    auto_install_nc = ctx.obj["auto_install_nc"]
     aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
     ecs_manifest = read_ecs_file()
@@ -236,8 +238,13 @@ def action_dev(ctx):
     parsed_containers = fetch_containers(user, app_name)
     print()
     create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers)
-    run_nc_commands(parsed_containers, aws_region, aws_account, ecs_manifest)
+    run_nc_commands(
+        parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_nc
+    )
     print()
+
+    for event_handler in event_handlers:
+        event_handler.synchronize()
 
     found_tty = execute_command(
         ecs_manifest,
@@ -333,11 +340,21 @@ def click_run(ctx, no_docker_build, force_redeployment, show_docker_logs):
     show_default=True,
     help="If used, it will show the docker build and push logs",
 )
+@click.option(
+    "--auto-install-nc",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="If used, it will automatically install nc on the container",
+)
 @click.pass_context
-def click_dev(ctx, no_docker_build, force_redeployment, show_docker_logs):
+def click_dev(
+    ctx, no_docker_build, force_redeployment, show_docker_logs, auto_install_nc
+):
     ctx.obj["no_docker_build"] = no_docker_build
     ctx.obj["force_redeployment"] = force_redeployment
     ctx.obj["show_docker_logs"] = show_docker_logs
+    ctx.obj["auto_install_nc"] = auto_install_nc
     action_dev(ctx)
 
 
