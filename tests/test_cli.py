@@ -47,6 +47,7 @@ def create_context():
             "no_docker_build": False,
             "force_redeployment": False,
             "show_docker_logs": False,
+            "auto_install_nc": False,
         }
     )
 

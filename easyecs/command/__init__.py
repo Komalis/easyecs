@@ -14,6 +14,7 @@ from easyecs.helpers.signal import override_sigint
 
 port_forward_pids = []
 threads = []
+event_handlers = []
 popen_procs_port_forward = []
 popen_procs_exec_command = []
 
@@ -93,6 +94,7 @@ def run_sync_thread(parsed_containers, ecs_manifest):
             port = parsed_containers[container_name].get("netcat_port", None)
             for volume in container.volumes:
                 event_handler = SynchronizeEventHandler(volume, port)
+                event_handlers.append(event_handler)
                 observer.schedule(event_handler, ".", recursive=True)
             observer.daemon = True
             observer.start()
@@ -209,6 +211,33 @@ def run_nc_command(parsed_containers, aws_region, aws_account, container_name):
     popen_procs_port_forward.append(proc_nc_server)
 
 
+def install_netcat_command(target, aws_region, aws_account) -> None:
+    client = boto3.client("ssm")
+    commands_server = [["apt update"], ["apt install -y netcat-openbsd"]]
+    for command_server in commands_server:
+        parameters_nc_server = {"command": command_server}
+        ssm_nc_server = client.start_session(
+            Target=target,
+            DocumentName="AWS-StartInteractiveCommand",
+            Parameters=parameters_nc_server,
+        )
+        cmd_nc_server = [
+            "session-manager-plugin",
+            json.dumps(ssm_nc_server),
+            aws_region,
+            "StartSession",
+            aws_account,
+            json.dumps(dict(Target=target)),
+            "https://ssm.eu-west-1.amazonaws.com",
+        ]
+        subprocess.run(
+            cmd_nc_server,
+            start_new_session=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+        )
+
+
 def check_nc_command(target, aws_region, aws_account):
     client = boto3.client("ssm")
     command_server = ["which nc"]
@@ -231,7 +260,9 @@ def check_nc_command(target, aws_region, aws_account):
     return "/nc" in output.decode("utf8").split("\n")[2]
 
 
-def run_nc_commands(parsed_containers, aws_region, aws_account, ecs_manifest):
+def run_nc_commands(
+    parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_nc
+):
     containers = ecs_manifest.task_definition.containers
     for container in containers:
         if len(container.volumes) > 0:
@@ -248,13 +279,16 @@ def run_nc_commands(parsed_containers, aws_region, aws_account, ecs_manifest):
                 0.05,
             )
             loader.start()
+            if auto_install_nc:
+                install_netcat_command(ssm_target, aws_region, aws_account)
             has_nc = check_nc_command(ssm_target, aws_region, aws_account)
             if not has_nc:
                 loader.stop_error()
                 print(
                     f"{Color.YELLOW}In order to use volumes on container"
                     f" {container_name}, you need to install netcat command on the"
-                    f" container and on the host machine!{Color.END}"
+                    " container and on the host machine!\nYou can try to install it on"
+                    f" the container using --auto-install-nc{Color.END}"
                 )
             else:
                 run_nc_command(
