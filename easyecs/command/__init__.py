@@ -164,51 +164,52 @@ def generate_ssm_cmd(ssm_nc_server, aws_region, aws_account, target):
     ]
 
 
-def run_nc_command(parsed_containers, aws_region, aws_account, container_name):
-    random_port = generate_random_port()
-    parsed_containers[container_name]["netcat_port"] = random_port
-    port_forward(
-        parsed_containers,
-        container_name,
-        random_port,
-        random_port,
-        aws_region,
-        aws_account,
-    )
-
-    client = boto3.client("ssm")
-    target = parsed_containers.get(container_name)["ssm_target"]
-    # command_server = [
-    # f"bash -c 'while true; do nc -l {random_port} | tar -xzf -; done'"
-    # ]
-    command_server = [
-        f"bash -c 'while true; do nc -q1 -v -l {random_port} > /tmp/copy.tar.gz.tmp; cp"
-        " /tmp/copy.tar.gz.tmp /tmp/copy.tar.gz; fc=$(cat /tmp/copy.tar.gz | tar -ztf"
-        " - | head -c1); if [ $fc = . ]; then cat /tmp/copy.tar.gz | tar -xzf -; else"
-        " cat /tmp/copy.tar.gz | tar -xzf - -C /; fi; done'"
-    ]
-    parameters_nc_server = {"command": command_server}
-    ssm_nc_server = client.start_session(
-        Target=target,
-        DocumentName="AWS-StartInteractiveCommand",
-        Parameters=parameters_nc_server,
-    )
-    cmd_nc_server = generate_ssm_cmd(ssm_nc_server, aws_region, aws_account, target)
-    DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
-    if DEBUG_EASYECS:
-        proc_nc_server = subprocess.Popen(
-            cmd_nc_server,
-            start_new_session=True,
-            stdin=subprocess.PIPE,
-        )
-    else:
-        proc_nc_server = subprocess.Popen(
-            cmd_nc_server,
-            start_new_session=True,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
-        )
-    popen_procs_port_forward.append(proc_nc_server)
+def run_nc_command(
+    parsed_containers, aws_region, aws_account, container_name, ecs_manifest
+):
+    containers = ecs_manifest.task_definition.containers
+    for container in containers:
+        if len(container.volumes) > 0:
+            for volume in container.volumes:
+                random_port = generate_random_port()
+                parsed_containers[container_name]["netcat_port"] = random_port
+                port_forward(
+                    parsed_containers,
+                    container_name,
+                    random_port,
+                    random_port,
+                    aws_region,
+                    aws_account,
+                )
+                client = boto3.client("ssm")
+                target = parsed_containers.get(container_name)["ssm_target"]
+                command_server = [
+                    f"bash -c 'while true; do nc -q1 -v -l {random_port} >"
+                    f" /tmp/{random_port}.tar.gz.tmp; cp /tmp/{random_port}.tar.gz.tmp"
+                    f" /tmp/{random_port}.copy.tar.gz; fc=$(cat"
+                    f" /tmp/{random_port}.copy.tar.gz | tar -ztf - | head -c1); if ["
+                    f" $fc = . ]; then cat /tmp/{random_port}.copy.tar.gz | tar -xzf -;"
+                    f" else cat /tmp/{random_port}.copy.tar.gz | tar -xzf - -C /; fi;"
+                    " done'"
+                ]
+                parameters_nc_server = {"command": command_server}
+                ssm_nc_server = client.start_session(
+                    Target=target,
+                    DocumentName="AWS-StartInteractiveCommand",
+                    Parameters=parameters_nc_server,
+                )
+                cmd_nc_server = generate_ssm_cmd(
+                    ssm_nc_server, aws_region, aws_account, target
+                )
+                DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
+                stdout = None if DEBUG_EASYECS else subprocess.DEVNULL
+                proc_nc_server = subprocess.Popen(
+                    cmd_nc_server,
+                    start_new_session=True,
+                    stdin=subprocess.PIPE,
+                    stdout=stdout,
+                )
+                popen_procs_port_forward.append(proc_nc_server)
 
 
 def install_netcat_command(target, aws_region, aws_account) -> None:
@@ -230,11 +231,12 @@ def install_netcat_command(target, aws_region, aws_account) -> None:
             json.dumps(dict(Target=target)),
             "https://ssm.eu-west-1.amazonaws.com",
         ]
+        DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
+        stdout = None if DEBUG_EASYECS else subprocess.DEVNULL
         subprocess.run(
             cmd_nc_server,
             start_new_session=True,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
+            stdout=stdout,
         )
 
 
@@ -279,10 +281,8 @@ def run_nc_commands(
                 0.05,
             )
             loader.start()
-            if auto_install_nc:
-                install_netcat_command(ssm_target, aws_region, aws_account)
             has_nc = check_nc_command(ssm_target, aws_region, aws_account)
-            if not has_nc:
+            if not has_nc and not auto_install_nc:
                 loader.stop_error()
                 print(
                     f"{Color.YELLOW}In order to use volumes on container"
@@ -291,8 +291,14 @@ def run_nc_commands(
                     f" the container using --auto-install-nc{Color.END}"
                 )
             else:
+                if not has_nc and auto_install_nc:
+                    install_netcat_command(ssm_target, aws_region, aws_account)
                 run_nc_command(
-                    parsed_containers, aws_region, aws_account, container_name
+                    parsed_containers,
+                    aws_region,
+                    aws_account,
+                    container_name,
+                    ecs_manifest,
                 )
                 run_sync_thread(parsed_containers, ecs_manifest)
                 loader.stop()

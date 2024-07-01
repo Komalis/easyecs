@@ -1,28 +1,40 @@
 import datetime
 import os
 from os.path import dirname, basename
+import time
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 import tarfile
 import socket
 
+from easyecs.helpers.color import Color
 
-def create_tar_for_sync(input, output_dirname):
-    with tarfile.open("/tmp/copy.tar.gz", "w:gz") as f:
+
+def create_tar_for_sync(input, output_dirname, port):
+    with tarfile.open(f"/tmp/{port}.copy.tar.gz", "w:gz") as f:
         filename = basename(input)
         f.add(input, arcname=f"{output_dirname}/{filename}")
 
 
-def netcat(hostname, port, content):
+def netcat(hostname, port, content, input, output):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((hostname, port))
-    s.sendall(content)
-    s.shutdown(socket.SHUT_WR)
-    while 1:
-        data = s.recv(1024)
-        if len(data) == 0:
-            break
-        print("Received:", repr(data))
-    s.close()
+    retry = 0
+    MAX_RETRY = 3
+    while retry < MAX_RETRY:
+        try:
+            s.connect((hostname, port))
+            s.sendall(content)
+            s.shutdown(socket.SHUT_WR)
+            data = s.recv(1024)
+            print(
+                f"\n{Color.GRAY}Synchronized {input} to {output} !{Color.END}", end=""
+            )
+            if len(data) == 0:
+                break
+            print("Received:", repr(data))
+            s.close()
+        except Exception:
+            retry += 1
+            time.sleep(1)
 
 
 class SynchronizeEventHandler(FileSystemEventHandler):
@@ -37,10 +49,11 @@ class SynchronizeEventHandler(FileSystemEventHandler):
         self.last_event = datetime.datetime.now().timestamp()
 
     def synchronize(self):
-        create_tar_for_sync(self.input, self.output_dirname)
-        f = open("/tmp/copy.tar.gz", "rb")
+        port = int(self.port)
+        create_tar_for_sync(self.input, self.output_dirname, port)
+        f = open(f"/tmp/{port}.copy.tar.gz", "rb")
         data = f.read()
-        netcat("127.0.0.1", int(self.port), data)
+        netcat("127.0.0.1", port, data, self.input, self.output_dirname)
 
     def dispatch(self, event: FileSystemEvent):
         delta = datetime.datetime.now().timestamp() - self.last_event

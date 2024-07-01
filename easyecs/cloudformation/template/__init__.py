@@ -173,7 +173,7 @@ def create_security_group(stack, service_name, vpc):
 def create_ecs_service(
     stack, service_name, cluster, task_definition, subnets, security_group
 ):
-    from aws_cdk.aws_ecs import FargateService
+    from aws_cdk.aws_ecs import FargateService, DeploymentCircuitBreaker
 
     service_name = f"{service_name}-service"
     return FargateService(
@@ -186,4 +186,5 @@ def create_ecs_service(
         security_groups=[security_group],
         enable_execute_command=True,
         min_healthy_percent=0,
+        circuit_breaker=DeploymentCircuitBreaker(enable=True),
     )
