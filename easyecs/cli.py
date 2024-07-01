@@ -1,5 +1,6 @@
 #!python
 
+from signal import SIGINT
 import time
 import click
 from easyecs.cloudformation.stack.create import create_stack
@@ -109,7 +110,8 @@ def step_idle_keyboard():
 
 def step_clean_exit():
     for popen_proc in popen_procs_port_forward:
-        popen_proc.kill()
+        popen_proc.send_signal(SIGINT)
+        popen_proc.wait()
 
     for thread in threads:
         thread.stop()
