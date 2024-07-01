@@ -230,11 +230,12 @@ def install_netcat_command(target, aws_region, aws_account) -> None:
             json.dumps(dict(Target=target)),
             "https://ssm.eu-west-1.amazonaws.com",
         ]
+        DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
+        stdout = None if DEBUG_EASYECS else subprocess.DEVNULL
         subprocess.run(
             cmd_nc_server,
             start_new_session=True,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
+            stdout=stdout,
         )
 
 
