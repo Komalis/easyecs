@@ -43,6 +43,7 @@ class EcsFileBuildModel(BaseModel):
     dockerfile: str = "Dockerfile"
     target: Optional[str] = None
     args: Dict[str, str] = {}
+    context: str = "."
 
 
 class EcsFileEnvModel(BaseModel):
