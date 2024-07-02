@@ -7,6 +7,7 @@ def test_docker_command():
     build = MagicMock()
     build.dockerfile = "Dockerfile.dev"
     build.target = "dev"
+    build.context = "."
     build.args = {"ARG1": "VALUE1", "ARG2": "VALUE2"}
     image_name = "test_image"
 
@@ -21,6 +22,7 @@ def test_docker_command_without_target():
     build = MagicMock()
     build.dockerfile = "Dockerfile.dev"
     build.target = None
+    build.context = "."
     build.args = {"ARG1": "VALUE1", "ARG2": "VALUE2"}
     image_name = "test_image"
 
@@ -37,6 +39,7 @@ def test_docker_command_without_dockerfile():
     build = MagicMock()
     build.dockerfile = None
     build.target = "dev"
+    build.context = "."
     build.args = {"ARG1": "VALUE1", "ARG2": "VALUE2"}
     image_name = "test_image"
 
@@ -50,6 +53,7 @@ def test_docker_command_without_dockerfile():
 def test_docker_command_without_args():
     build = MagicMock()
     build.dockerfile = "Dockerfile.dev"
+    build.context = "."
     build.args = {}
     build.target = "dev"
     image_name = "test_image"

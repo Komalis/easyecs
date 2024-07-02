@@ -1,6 +1,9 @@
 import os
 from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, computed_field, field_validator
+from pathlib import Path
+
+from easyecs.helpers.exceptions import FileNotFoundException
 
 
 class EcsFileMetadataModel(BaseModel):
@@ -43,6 +46,7 @@ class EcsFileBuildModel(BaseModel):
     dockerfile: str = "Dockerfile"
     target: Optional[str] = None
     args: Dict[str, str] = {}
+    context: str = "."
 
 
 class EcsFileEnvModel(BaseModel):
@@ -89,6 +93,18 @@ class EcsFileContainerModel(BaseModel):
     volumes: List[str] = []
     healthcheck: Optional[EcsFileContainerHealthCheckModel] = None
     depends_on: Optional[Dict[str, Dict[str, str]]] = None
+
+    @field_validator("volumes")
+    def validate_volumes(cls, volumes):
+        resolved_volumes = []
+        for volume in volumes:
+            _from, _to = volume.split(":")
+            if not os.path.exists(_from):
+                raise FileNotFoundException(f"{_from} does not exists!")
+            resolved_from_dir = Path(_from).parent.resolve()
+            resolved_from_file = Path(_from).name
+            resolved_volumes.append(f"{resolved_from_dir}/{resolved_from_file}:{_to}")
+        return resolved_volumes
 
 
 class EcsTaskDefinitionModel(BaseModel):
