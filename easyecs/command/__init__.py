@@ -93,9 +93,10 @@ def run_sync_thread(parsed_containers, ecs_manifest):
             container_name = container.name
             port = parsed_containers[container_name].get("netcat_port", None)
             for volume in container.volumes:
+                _from, _ = volume.split(":")
                 event_handler = SynchronizeEventHandler(volume, port)
                 event_handlers.append(event_handler)
-                observer.schedule(event_handler, ".", recursive=True)
+                observer.schedule(event_handler, _from, recursive=True)
             observer.daemon = True
             observer.start()
             threads.append(observer)
@@ -184,7 +185,7 @@ def run_nc_command(
                 client = boto3.client("ssm")
                 target = parsed_containers.get(container_name)["ssm_target"]
                 command_server = [
-                    f"bash -c 'while true; do nc -q1 -v -l {random_port} >"
+                    f"bash -c 'while true; do nc -v -l {random_port} >"
                     f" /tmp/{random_port}.tar.gz.tmp; cp /tmp/{random_port}.tar.gz.tmp"
                     f" /tmp/{random_port}.copy.tar.gz; fc=$(cat"
                     f" /tmp/{random_port}.copy.tar.gz | tar -ztf - | head -c1); if ["
