@@ -247,6 +247,7 @@ def action_dev(ctx):
 
     for event_handler in event_handlers:
         event_handler.synchronize()
+        time.sleep(1)
 
     found_tty = execute_command(
         ecs_manifest,
