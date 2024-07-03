@@ -1,7 +1,9 @@
 #!python
 
+from dataclasses import dataclass
 from signal import SIGINT
 import time
+from typing import Callable
 import click
 from easyecs.cloudformation.stack.create import create_stack
 from easyecs.cloudformation.stack.delete import delete_stack
@@ -47,6 +49,52 @@ def step_import_aws_cdk():
     import aws_cdk  # noqa: F401
 
     loader_import.stop()
+
+
+@dataclass(frozen=True)
+class Options:
+    no_docker_build: Callable = click.option(
+    "--no-docker-build",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "If used, easyecs will not build and push docker image of containers if there"
+        " is one to build."
+    )
+    )
+    force_redeployment: Callable = click.option(
+    "--force-redeployment",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "If used, and only when there's no update on the cloudformation stack, easyecs"
+        " will force a new deployment of the task."
+    ),
+    )
+    show_docker_logs: Callable = click.option(
+    "--show-docker-logs",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="If used, it will show the docker build and push logs",
+    )
+    
+    auto_install_nc: Callable = click.option(
+    "--auto-install-nc",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="If used, it will automatically install nc on the container",
+    )
+    file_name: Callable = click.option(
+    "--file-name",
+    default="ecs.yml",
+    help="Name of the file in current directory to be used to use for easyecs",
+    )
+
+options = Options()
 
 
 def step_docker_build_and_push(
@@ -164,10 +212,7 @@ def step_bring_up_stack(
         print(f"{Color.YELLOW}No updates are to be performed.{Color.END}")
 
 
-def action_run(ctx):
-    no_docker_build = ctx.obj["no_docker_build"]
-    force_redeployment = ctx.obj["force_redeployment"]
-    show_docker_logs = ctx.obj["show_docker_logs"]
+def action_run(no_docker_build: bool = False, force_redeployment: bool = False, show_docker_logs: bool = False):
     aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
     ecs_manifest = read_ecs_file()
@@ -205,11 +250,7 @@ def action_run(ctx):
     exit(0)
 
 
-def action_dev(ctx):
-    no_docker_build = ctx.obj["no_docker_build"]
-    force_redeployment = ctx.obj["force_redeployment"]
-    show_docker_logs = ctx.obj["show_docker_logs"]
-    auto_install_nc = ctx.obj["auto_install_nc"]
+def action_dev(no_docker_build: bool = False, force_redeployment: bool = False, show_docker_logs: bool = False, auto_install_nc: bool = False):
     aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
     ecs_manifest = read_ecs_file()
@@ -280,85 +321,32 @@ def entrypoint(ctx):
 
 
 @entrypoint.command(name="run", help="Run a stack")
-@click.option(
-    "--no-docker-build",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If used, easyecs will not build and push docker image of containers if there"
-        " is one to build."
-    ),
-)
-@click.option(
-    "--force-redeployment",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If used, and only when there's no update on the cloudformation stack, easyecs"
-        " will force a new deployment of the task."
-    ),
-)
-@click.option(
-    "--show-docker-logs",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help="If used, it will show the docker build and push logs",
-)
+@options.no_docker_build
+@options.force_redeployment
+@options.show_docker_logs
 @click.pass_context
-def click_run(ctx, no_docker_build, force_redeployment, show_docker_logs):
-    ctx.obj["no_docker_build"] = no_docker_build
-    ctx.obj["force_redeployment"] = force_redeployment
-    ctx.obj["show_docker_logs"] = show_docker_logs
-    action_run(ctx)
-
+def click_run(ctx, no_docker_build: bool, force_redeployment: bool, show_docker_logs: bool):
+    action_run(
+        no_docker_build,
+        force_redeployment,
+        show_docker_logs
+    )
 
 @entrypoint.command(name="dev", help="Run a stack in development mode")
-@click.option(
-    "--no-docker-build",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If used, easyecs will not build and push docker image of containers if there"
-        " is one to build."
-    ),
-)
-@click.option(
-    "--force-redeployment",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If used, and only when there's no update on the cloudformation stack, easyecs"
-        " will force a new deployment of the task."
-    ),
-)
-@click.option(
-    "--show-docker-logs",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help="If used, it will show the docker build and push logs",
-)
-@click.option(
-    "--auto-install-nc",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help="If used, it will automatically install nc on the container",
-)
+@options.no_docker_build
+@options.force_redeployment
+@options.show_docker_logs
+@options.auto_install_nc
 @click.pass_context
 def click_dev(
-    ctx, no_docker_build, force_redeployment, show_docker_logs, auto_install_nc
+    ctx, no_docker_build: bool, force_redeployment: bool, show_docker_logs: bool, auto_install_nc: bool
 ):
-    ctx.obj["no_docker_build"] = no_docker_build
-    ctx.obj["force_redeployment"] = force_redeployment
-    ctx.obj["show_docker_logs"] = show_docker_logs
-    ctx.obj["auto_install_nc"] = auto_install_nc
-    action_dev(ctx)
+    action_dev(
+        no_docker_build,
+        force_redeployment,
+        show_docker_logs,
+        auto_install_nc
+    )
 
 
 @entrypoint.command(name="delete", help="Delete a stack")
