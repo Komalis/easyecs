@@ -54,45 +54,46 @@ def step_import_aws_cdk():
 @dataclass(frozen=True)
 class Options:
     no_docker_build: Callable = click.option(
-    "--no-docker-build",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If used, easyecs will not build and push docker image of containers if there"
-        " is one to build."
-    )
+        "--no-docker-build",
+        is_flag=True,
+        default=False,
+        show_default=True,
+        help=(
+            "If used, easyecs will not build and push docker image of containers if"
+            " there is one to build."
+        ),
     )
     force_redeployment: Callable = click.option(
-    "--force-redeployment",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If used, and only when there's no update on the cloudformation stack, easyecs"
-        " will force a new deployment of the task."
-    ),
+        "--force-redeployment",
+        is_flag=True,
+        default=False,
+        show_default=True,
+        help=(
+            "If used, and only when there's no update on the cloudformation stack,"
+            " easyecs will force a new deployment of the task."
+        ),
     )
     show_docker_logs: Callable = click.option(
-    "--show-docker-logs",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help="If used, it will show the docker build and push logs",
+        "--show-docker-logs",
+        is_flag=True,
+        default=False,
+        show_default=True,
+        help="If used, it will show the docker build and push logs",
     )
-    
+
     auto_install_nc: Callable = click.option(
-    "--auto-install-nc",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help="If used, it will automatically install nc on the container",
+        "--auto-install-nc",
+        is_flag=True,
+        default=False,
+        show_default=True,
+        help="If used, it will automatically install nc on the container",
     )
     file_name: Callable = click.option(
-    "--file-name",
-    default="ecs.yml",
-    help="Name of the file in current directory to be used to use for easyecs",
+        "--file-name",
+        default="ecs.yml",
+        help="Name of the file in current directory to be used for easyecs",
     )
+
 
 options = Options()
 
@@ -171,8 +172,8 @@ def step_clean_exit():
         popen_proc.wait()
 
 
-def has_ecs_file_changed(cache_settings):
-    hash_sha256 = compute_hash_ecs_file()
+def has_ecs_file_changed(cache_settings, file_name: str):
+    hash_sha256 = compute_hash_ecs_file(file_name)
     return hash_sha256 != cache_settings["sha256"]
 
 
@@ -190,9 +191,10 @@ def step_bring_up_stack(
     aws_account,
     show_docker_logs,
     run,
+    file_name,
 ):
     print()
-    if has_ecs_file_changed(cache_settings) or force_redeployment:
+    if has_ecs_file_changed(cache_settings, file_name) or force_redeployment:
         step_import_aws_cdk()
         step_docker_build_and_push(
             no_docker_build,
@@ -212,10 +214,15 @@ def step_bring_up_stack(
         print(f"{Color.YELLOW}No updates are to be performed.{Color.END}")
 
 
-def action_run(no_docker_build: bool = False, force_redeployment: bool = False, show_docker_logs: bool = False):
+def action_run(
+    file_name: str,
+    no_docker_build: bool = False,
+    force_redeployment: bool = False,
+    show_docker_logs: bool = False,
+):
     aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
-    ecs_manifest = read_ecs_file()
+    ecs_manifest = read_ecs_file(file_name)
     app_name = ecs_manifest.metadata.appname
     user = ecs_manifest.metadata.user
     aws_region = cache_settings["aws_region"]
@@ -239,6 +246,7 @@ def action_run(no_docker_build: bool = False, force_redeployment: bool = False, 
         aws_account,
         show_docker_logs,
         run=True,
+        file_name=file_name,
     )
     parsed_containers = fetch_containers(user, app_name)
     print()
@@ -250,10 +258,16 @@ def action_run(no_docker_build: bool = False, force_redeployment: bool = False, 
     exit(0)
 
 
-def action_dev(no_docker_build: bool = False, force_redeployment: bool = False, show_docker_logs: bool = False, auto_install_nc: bool = False):
+def action_dev(
+    file_name: str,
+    no_docker_build: bool = False,
+    force_redeployment: bool = False,
+    show_docker_logs: bool = False,
+    auto_install_nc: bool = False,
+):
     aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
-    ecs_manifest = read_ecs_file()
+    ecs_manifest = read_ecs_file(file_name)
     app_name = ecs_manifest.metadata.appname
     user = ecs_manifest.metadata.user
     aws_region = cache_settings["aws_region"]
@@ -277,6 +291,7 @@ def action_dev(no_docker_build: bool = False, force_redeployment: bool = False, 
         aws_account,
         show_docker_logs,
         run=False,
+        file_name=file_name,
     )
     parsed_containers = fetch_containers(user, app_name)
     print()
@@ -303,9 +318,9 @@ def action_dev(no_docker_build: bool = False, force_redeployment: bool = False, 
     exit(0)
 
 
-def action_delete(_):
+def action_delete(file_name: str):
     aws_account = fetch_aws_account()
-    ecs_manifest = read_ecs_file()
+    ecs_manifest = read_ecs_file(file_name)
     app_name = ecs_manifest.metadata.appname
     user = ecs_manifest.metadata.user
     stack_name = f"{user}-{app_name}"
@@ -324,35 +339,42 @@ def entrypoint(ctx):
 @options.no_docker_build
 @options.force_redeployment
 @options.show_docker_logs
-@click.pass_context
-def click_run(ctx, no_docker_build: bool, force_redeployment: bool, show_docker_logs: bool):
-    action_run(
-        no_docker_build,
-        force_redeployment,
-        show_docker_logs
-    )
+@options.file_name
+def click_run(
+    no_docker_build: bool,
+    force_redeployment: bool,
+    show_docker_logs: bool,
+    file_name: str,
+):
+    action_run(file_name, no_docker_build, force_redeployment, show_docker_logs)
+
 
 @entrypoint.command(name="dev", help="Run a stack in development mode")
 @options.no_docker_build
 @options.force_redeployment
 @options.show_docker_logs
 @options.auto_install_nc
-@click.pass_context
+@options.file_name
 def click_dev(
-    ctx, no_docker_build: bool, force_redeployment: bool, show_docker_logs: bool, auto_install_nc: bool
+    no_docker_build: bool,
+    force_redeployment: bool,
+    show_docker_logs: bool,
+    auto_install_nc: bool,
+    file_name: str,
 ):
     action_dev(
+        file_name,
         no_docker_build,
         force_redeployment,
         show_docker_logs,
-        auto_install_nc
+        auto_install_nc,
     )
 
 
 @entrypoint.command(name="delete", help="Delete a stack")
-@click.pass_context
-def click_delete(ctx):
-    action_delete(ctx)
+@options.file_name
+def click_delete(file_name: str):
+    action_delete(file_name)
 
 
 if __name__ == "__main__":
