@@ -209,13 +209,13 @@ def step_bring_up_stack(
             run,
         )
         step_create_or_update_stack(stack_name, force_redeployment)
-        save_hash(aws_account)
+        save_hash(aws_account, file_name)
     else:
         print(f"{Color.YELLOW}No updates are to be performed.{Color.END}")
 
 
 def action_run(
-    file_name: str,
+    file_name: str = "ecs.yml",
     no_docker_build: bool = False,
     force_redeployment: bool = False,
     show_docker_logs: bool = False,
@@ -259,7 +259,7 @@ def action_run(
 
 
 def action_dev(
-    file_name: str,
+    file_name: str = "ecs.yml",
     no_docker_build: bool = False,
     force_redeployment: bool = False,
     show_docker_logs: bool = False,

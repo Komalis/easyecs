@@ -1,4 +1,3 @@
-from dataclasses import dataclass, field
 import json
 import subprocess
 from unittest.mock import MagicMock
@@ -12,11 +11,6 @@ from easyecs.command import generate_ssm_cmd
 # Those tests are checking if cloudformation is called in different use cases.
 # It also checks if waiters are called to wait for the stack to be completed.
 # And moreover checks if the errors are handled correctly.
-
-
-@dataclass
-class Context:
-    obj: dict = field(default_factory=dict)
 
 
 @pytest.fixture
@@ -41,20 +35,20 @@ def setup_mocker(mocker):
     mocker.patch("easyecs.cli.has_ecs_file_changed", return_value=True)
 
 
-def create_context():
-    return Context(
-        obj={
-            "no_docker_build": False,
-            "force_redeployment": False,
-            "show_docker_logs": False,
-            "auto_install_nc": False,
-        }
-    )
+def get_params():
+    return {
+        "no_docker_build": False,
+        "force_redeployment": False,
+        "show_docker_logs": False,
+        "auto_install_nc": False,
+    }
 
 
-def run_action(action, ctx):
+def run_action(action, params):
     try:
-        action(ctx)
+        if action == action_run:
+            params.pop("auto_install_nc")
+        action(**params)
     except SystemExit:
         pass
 
@@ -73,8 +67,8 @@ def test_cloudformation_create_stack_is_called(action, setup_mocker, mocker):
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.create_stack.assert_called_once()
 
@@ -94,8 +88,8 @@ def test_cloudformation_create_stack_is_not_called_stack_created(
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.create_stack.assert_not_called()
 
@@ -113,8 +107,8 @@ def test_cloudformation_update_stack_is_called_stack_created(
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.update_stack.assert_called_once()
 
@@ -142,8 +136,8 @@ def test_cloudformation_update_stack_is_called_stack_created_no_update(
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.update_stack.assert_called_once()
 
@@ -169,8 +163,8 @@ def test_cloudformation_cancel_update_is_called_stack_created_no_update_update_i
         "easyecs.cloudformation.stack.update.boto3.resource", return_value=mock
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.Stack().cancel_update.assert_called_once
 
@@ -198,8 +192,8 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.get_waiter.assert_called_once_with("stack_rollback_complete")
 
@@ -227,8 +221,8 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.get_waiter.assert_called_once_with("stack_rollback_complete")
 
@@ -256,8 +250,8 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.get_waiter.assert_called_once_with("stack_create_complete")
 
@@ -277,8 +271,8 @@ def test_cloudformation_waiter_stack_update_complete_is_called_stack_created(  #
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.get_waiter.assert_called_once_with("stack_update_complete")
 
@@ -296,8 +290,8 @@ def test_cloudformation_waiter_stack_create_complete_is_called_stack_not_created
         return_value=mock,
     )
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     mock.get_waiter.assert_called_once_with("stack_create_complete")
 
@@ -315,8 +309,8 @@ def test_cloudformation_waiter_stack_no_create_or_update_if_hash_same(  # noqa: 
         mocker.patch("easyecs.cli.save_hash"),
     ]
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     for mock in mocks:
         mock.assert_not_called()
@@ -335,9 +329,9 @@ def test_cloudformation_waiter_stack_create_or_update_if_hash_same_force_redeplo
         mocker.patch("easyecs.cli.save_hash"),
     ]
 
-    ctx = create_context()
-    ctx.obj["force_redeployment"] = True
-    run_action(action, ctx)
+    params = get_params()
+    params["force_redeployment"] = True
+    run_action(action, params)
 
     for mock in mocks:
         mock.assert_called_once()
@@ -371,8 +365,8 @@ def test_run_nc_when_dev_with_volumes(action, mocker):  # noqa: E501
     proc_nc_server = mocker.patch("easyecs.command.subprocess.Popen")
     mocker.patch("easyecs.command.json.dumps")
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     proc_nc_server.assert_called_once_with(
         ssm_cmd,
@@ -426,8 +420,8 @@ def test_no_run_nc_when_dev_without_synchronize(action, mocker):  # noqa: E501
     proc_nc_server = mocker.patch("easyecs.command.subprocess.Popen")
     mocker.patch("easyecs.command.json.dumps")
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     proc_nc_server.assert_not_called()
 
@@ -458,8 +452,8 @@ def test_no_run_nc_when_dev_with_synchronize_without_nc(action, mocker):  # noqa
     proc_nc_server = mocker.patch("easyecs.command.subprocess.Popen")
     mocker.patch("easyecs.command.json.dumps")
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     proc_nc_server.assert_not_called()
 
@@ -498,8 +492,8 @@ def test_run_port_forward(action, ports, mocker):  # noqa: E501
 
     process = mocker.patch("easyecs.command.subprocess.Popen")
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     if len(ports) == 1:
         process.assert_called_once_with(
@@ -546,7 +540,7 @@ def test_no_run_port_forward_port_in_use(action, ports, mocker):  # noqa: E501
 
     process = mocker.patch("easyecs.command.subprocess.Popen")
 
-    ctx = create_context()
-    run_action(action, ctx)
+    params = get_params()
+    run_action(action, params)
 
     process.assert_not_called()
