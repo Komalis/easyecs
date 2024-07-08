@@ -15,22 +15,22 @@ from easyecs.helpers.color import Color
 from easyecs.model.ecs import EcsFileModel
 
 
-def read_ecs_file() -> EcsFileModel:
-    with open("./ecs.yml") as f:
+def read_ecs_file(file_name: str) -> EcsFileModel:
+    with open(file_name) as f:
         data = yaml.load(f, Loader=SafeLoader)
     return EcsFileModel(**data)
 
 
-def compute_hash_ecs_file():
+def compute_hash_ecs_file(file_name: str):
     hash_sha256 = hashlib.sha256()
-    with open("ecs.yml", "rb") as f:
+    with open(file_name, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_sha256.update(chunk)
     return hash_sha256.hexdigest()
 
 
-def save_hash(aws_account):
-    hash_sha256 = compute_hash_ecs_file()
+def save_hash(aws_account, file_name: str):
+    hash_sha256 = compute_hash_ecs_file(file_name)
     with open(".tmp/easyecs.tmp", "r") as f:
         cache_configuration = json.load(f)
     cache_configuration[aws_account]["sha256"] = hash_sha256
