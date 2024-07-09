@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, computed_field, field_validator
 from pathlib import Path
 
+from easyecs.helpers.common import template_with_env_var
 from easyecs.helpers.exceptions import FileNotFoundException
 
 
@@ -67,6 +68,14 @@ class EcsFileVolumeModel(BaseModel):
     id: str
     mount_point: str
 
+    @field_validator("id")
+    def set_id(cls, id):
+        parsed_id = template_with_env_var(id)
+        assert parsed_id.startswith(
+            "fs-"
+        ), f"EFS ID should start with fs- instead got {parsed_id}"
+        return parsed_id
+
 
 class EcsFileContainerHealthCheckModel(BaseModel):
     command: Union[List[str], str]
@@ -105,6 +114,10 @@ class EcsFileContainerModel(BaseModel):
             resolved_from_file = Path(_from).name
             resolved_volumes.append(f"{resolved_from_dir}/{resolved_from_file}:{_to}")
         return resolved_volumes
+
+    @field_validator("image")
+    def validate_image(cls, image):
+        return template_with_env_var(image)
 
 
 class EcsTaskDefinitionModel(BaseModel):
