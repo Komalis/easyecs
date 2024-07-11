@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import re
 import time
 from typing import Dict
 import boto3
@@ -18,17 +19,24 @@ def load_template(stack_name: str) -> Dict:
         return json.load(f)
 
 
+def template_with_env_var(value: str) -> str:
+    template_pattern = r"{{.[^}]+}}"
+    tpl_values = re.findall(template_pattern, value)
+    for tpl_value in tpl_values:
+        env_var_name = tpl_value[3:][:-2]
+        new_value = os.environ.get(env_var_name)
+        if new_value is None:
+            print(
+                f"{Color.RED}Environment variable {env_var_name} does not"
+                f" exist{Color.END}"
+            )
+        value = value.replace(tpl_value, new_value)
+    return value
+
+
 def parse_dict_with_env_var(build_args):
     for key, value in build_args.items():
-        if value.startswith("{{.") and value.endswith("}}"):
-            env_var_name = value[3:][:-2]
-            new_value = os.environ.get(env_var_name)
-            if new_value is None:
-                print(
-                    f"{Color.RED}Environment variable {env_var_name} does not"
-                    f" exist{Color.END}"
-                )
-            build_args[key] = new_value
+        build_args[key] = template_with_env_var(value)
     return build_args
 
 
