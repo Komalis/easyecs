@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, computed_field, field_validator
 from pathlib import Path
@@ -23,6 +24,15 @@ class EcsFileRoleModel(BaseModel):
     arn: Optional[str] = None
     managed_policies: List[str] = []
     statements: List[EcsFileStatementModel] = []
+
+    @field_validator("arn")
+    def set_arn(cls, arn):
+        arn_pattern: str = r"^arn:aws:iam::\d{0,12}:role\/[\w\d_\/.-]*$"
+        parsed_arn = template_with_env_var(arn)
+        assert re.match(
+            arn_pattern, parsed_arn
+        ), f"Role ARN does not respect arn pattern : {parsed_arn}"
+        return parsed_arn
 
     @field_validator("statements")
     def validate_unique_sid(cls, statements):
