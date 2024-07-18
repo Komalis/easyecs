@@ -1,3 +1,5 @@
+import os
+from typing import Union
 import pytest
 from pydantic import ValidationError
 from easyecs.model.ecs import (
@@ -72,3 +74,33 @@ def test_single_tty_validation():
         )
     error_message = exc_info.value.errors()[0]["msg"]
     assert "More than one container has tty set to true" in error_message
+
+
+@pytest.mark.parametrize(
+    "test_input,expected",
+    [
+        (
+            "arn:aws:sqs:us-east-1:123456789012:XYZ",
+            ValidationError,
+        ),
+        (
+            "arn:aws:iam::123456789012:role/S3Access",
+            "arn:aws:iam::123456789012:role/S3Access",
+        ),
+        (
+            "arn:aws:iam::123456789012:role/{{.USER}}",
+            "arn:aws:iam::123456789012:role/" + os.getenv("USER"),
+        ),
+    ],
+)
+def test_arn_validation(test_input: str, expected: Union[str, ValidationError]):
+    if expected == ValidationError:
+        with pytest.raises(expected) as exc_info:
+            EcsFileRoleModel(arn=test_input)
+        error_message = exc_info.value.errors()[0]["msg"]
+        assert (
+            "Role ARN does not respect arn pattern" in error_message
+        ), f"Expected: {expected}, Got: {error_message}"
+    else:
+        fm = EcsFileRoleModel(arn=test_input)
+        assert fm.arn == expected, f"Expected: {expected}, Got: {fm.arn}"
