@@ -51,13 +51,15 @@ def create_fargate_task_definition(
 
 
 def add_volumes_to_task_definition(task_definition, ecs_data):
-    from aws_cdk.aws_ecs import (
-        EfsVolumeConfiguration,
-    )
+    from aws_cdk.aws_ecs import EfsVolumeConfiguration, AuthorizationConfig
 
     """Add EFS volumes to the task definition."""
     for volume in ecs_data.task_definition.efs_volumes:
-        efs_volume_configuration = EfsVolumeConfiguration(file_system_id=volume.id)
+        efs_volume_configuration = EfsVolumeConfiguration(
+            file_system_id=volume.id,
+            authorization_config=AuthorizationConfig(iam="ENABLED"),
+            transit_encryption="ENABLED",
+        )
         task_definition.add_volume(
             name=volume.name, efs_volume_configuration=efs_volume_configuration
         )
