@@ -1,7 +1,7 @@
 import json
+import pexpect
 import os
 import subprocess
-import time
 import boto3
 import signal
 from watchdog.observers import Observer
@@ -124,11 +124,15 @@ def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
             )
             cmd_container = [
                 "session-manager-plugin",
+                "'",
                 json.dumps(ssm_container),
+                "'",
                 aws_region,
                 "StartSession",
                 aws_account,
+                "'",
                 json.dumps(dict(Target=target)),
+                "'",
                 "https://ssm.eu-west-1.amazonaws.com",
             ]
             if tty:
@@ -144,12 +148,11 @@ def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
     if found_tty:
         for sig in catchable_sigs:
             signal.signal(sig, override_sigint)
-        proc_nc_server = subprocess.Popen(tty_cmd)
-        while True:
-            if not proc_nc_server.poll():
-                proc_nc_server.wait()
-                break
-            time.sleep(0.1)
+        child = pexpect.spawn(" ".join(tty_cmd))
+        # Using CTRL + ] we can escape if something is stuck
+        child.interact()
+        child.write("exit\x03\x04".encode("utf8"))
+        child.kill(signal.Signals.SIGKILL)
     return found_tty
 
 
