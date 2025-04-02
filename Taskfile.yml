@@ -1,0 +1,28 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  init:
+    cmds:
+      - asdf install
+      - poetry install --with dev
+  shell:
+    cmds:
+      - echo "$(poetry env activate)"
+  test:
+    deps:
+      - init
+    cmds:
+      - poetry run pytest
+  deps:
+    cmds:
+      - poetry lock
+  style:
+    deps:
+      - init
+    cmds:
+      - poetry run pre-commit run -a
