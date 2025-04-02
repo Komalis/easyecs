@@ -1,4 +1,5 @@
 from easyecs.cloudformation.template.task_definition import create_task_definition
+from easyecs.model.ecs import EcsFileModel
 
 
 def create_template(
@@ -29,13 +30,19 @@ def create_template(
         Subnet.from_subnet_id(stack, id=f"container_{i}", subnet_id=subnet_id)
         for i, subnet_id in enumerate(subnet_ids)
     ]
+    listener = None
+    lb_security_group = None
 
     subnet_selection = SubnetSelection(subnets=subnets)
+    if ecs_manifest.load_balancer:
+        listener, lb_security_group = create_load_balancer(stack, ecs_manifest, vpc)
     task_role = create_task_role(stack, service_name, ecs_manifest)
     execution_task_role = create_execution_task_role(stack, service_name, ecs_manifest)
     ecs_cluster = create_ecs_cluster(stack, service_name, vpc)
     log_group = create_log_group(stack, service_name)
-    sg = create_security_group(stack, service_name, vpc)
+    sg = create_security_group(
+        stack, service_name, vpc, ecs_manifest, lb_security_group
+    )
     task_definition = create_task_definition(
         stack,
         service_name,
@@ -45,11 +52,114 @@ def create_template(
         ecs_manifest,
         run,
     )
-    create_ecs_service(
+    service = create_ecs_service(
         stack, service_name, ecs_cluster, task_definition, subnet_selection, sg
     )
+    if ecs_manifest.load_balancer and listener is not None:
+        listener.add_targets(
+            "NlbTarget",
+            port=ecs_manifest.load_balancer.target_group_port,
+            targets=[service],
+        )
 
     app.synth()
+
+
+def create_load_balancer(stack, ecs_manifest: EcsFileModel, vpc):
+    from aws_cdk.aws_ec2 import SecurityGroup, Peer, Port, Subnet, SubnetSelection
+    from aws_cdk.aws_elasticloadbalancingv2 import NetworkLoadBalancer
+
+    if ecs_manifest.load_balancer:
+        if ecs_manifest.load_balancer.security_group_id:
+            lb_security_group = SecurityGroup.from_security_group_id(
+                stack,
+                "nlb_security_group",
+                security_group_id=ecs_manifest.load_balancer.security_group_id,
+                allow_all_outbound=False,
+            )
+        else:
+            lb_security_group = SecurityGroup(
+                stack, "nlb_security_group", vpc=vpc, description="NLB Security Group"
+            )
+        if ecs_manifest.load_balancer.arn:
+            lb = NetworkLoadBalancer.from_network_load_balancer_attributes(
+                stack, "nlb", load_balancer_arn=ecs_manifest.load_balancer.arn, vpc=vpc
+            )
+        else:
+            subnets = [
+                Subnet.from_subnet_id(stack, f"Subnet{i}", subnet_id)
+                for i, subnet_id in enumerate(ecs_manifest.load_balancer.subnets)
+            ]
+            lb = NetworkLoadBalancer(
+                stack,
+                "nlb",
+                vpc=vpc,
+                load_balancer_name=ecs_manifest.load_balancer.load_balancer_name,
+                internet_facing=False,
+                vpc_subnets=SubnetSelection(subnets=subnets),
+                security_groups=[lb_security_group],
+            )
+        if ecs_manifest.load_balancer.security_group_rules:
+            if ecs_manifest.load_balancer.security_group_rules.egress:
+                for (
+                    egress_rule
+                ) in ecs_manifest.load_balancer.security_group_rules.egress:
+                    if egress_rule.cidr:
+                        lb_security_group.add_egress_rule(
+                            peer=(
+                                Peer.ipv4(egress_rule.cidr)
+                                if egress_rule != "0.0.0.0/0"
+                                else Peer.any_ipv4()
+                            ),
+                            connection=(
+                                Port.tcp(egress_rule.port)
+                                if egress_rule.port != -1
+                                else Port.all_traffic()
+                            ),
+                            description=egress_rule.name,
+                        )
+                    elif egress_rule.prefix_list:
+                        lb_security_group.add_egress_rule(
+                            peer=Peer.prefix_list(egress_rule.prefix_list),
+                            connection=(
+                                Port.tcp(egress_rule.port)
+                                if egress_rule.port != -1
+                                else Port.all_traffic()
+                            ),
+                            description=egress_rule.name,
+                        )
+            if ecs_manifest.load_balancer.security_group_rules.ingress:
+                for (
+                    ingress_rule
+                ) in ecs_manifest.load_balancer.security_group_rules.ingress:
+                    if ingress_rule.cidr:
+                        lb_security_group.add_ingress_rule(
+                            peer=(
+                                Peer.ipv4(ingress_rule.cidr)
+                                if ingress_rule != "0.0.0.0/0"
+                                else Peer.any_ipv4()
+                            ),
+                            connection=(
+                                Port.tcp(ingress_rule.port)
+                                if ingress_rule.port != -1
+                                else Port.all_traffic()
+                            ),
+                            description=ingress_rule.name,
+                        )
+                    elif ingress_rule.prefix_list:
+                        lb_security_group.add_ingress_rule(
+                            peer=Peer.prefix_list(ingress_rule.prefix_list),
+                            connection=(
+                                Port.tcp(ingress_rule.port)
+                                if ingress_rule.port != -1
+                                else Port.all_traffic()
+                            ),
+                            description=ingress_rule.name,
+                        )
+        listener = lb.add_listener(
+            "NlbListener", port=ecs_manifest.load_balancer.listener_port
+        )
+        return listener, lb_security_group
 
 
 def create_task_role(stack, service_name, ecs_manifest):
@@ -162,18 +272,24 @@ def create_log_group(stack, service_name):
     return LogGroup(stack, log_group_name)
 
 
-def create_security_group(stack, service_name, vpc):
-    from aws_cdk.aws_ec2 import ISecurityGroup, SecurityGroup
+def create_security_group(stack, service_name, vpc, ecs_manifest, lb_security_group):
+    from aws_cdk.aws_ec2 import ISecurityGroup, SecurityGroup, Port
 
     sg_name = f"{service_name}-sg"
     sg: ISecurityGroup = SecurityGroup(stack, sg_name, vpc=vpc, allow_all_outbound=True)
+    if ecs_manifest.load_balancer:
+        sg.add_ingress_rule(
+            peer=lb_security_group,
+            connection=Port.tcp(ecs_manifest.load_balancer.target_group_port),
+            description="Allow Port from Load Balancer",
+        )
     return sg
 
 
 def create_ecs_service(
     stack, service_name, cluster, task_definition, subnets, security_group
 ):
-    from aws_cdk.aws_ecs import FargateService, DeploymentCircuitBreaker
+    from aws_cdk.aws_ecs import FargateService
 
     service_name = f"{service_name}-service"
     return FargateService(
@@ -185,5 +301,5 @@ def create_ecs_service(
         vpc_subnets=subnets,
         security_groups=[security_group],
         enable_execute_command=True,
-        min_healthy_percent=0
+        min_healthy_percent=0,
     )

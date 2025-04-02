@@ -25,10 +25,12 @@ task_definition:
       memory: 4096
   containers:
     - name: helloworld
-      image: docker.io/library/debian
+      image: public.ecr.aws/ubuntu/ubuntu:24.04_stable
       user: root
       tty: true
       command: "/bin/bash"
+      ports:
+        - "8080:8080"
       resources:
         limits:
           cpu: 1

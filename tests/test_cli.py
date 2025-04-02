@@ -21,6 +21,7 @@ def setup_mocker(mocker):
     mocker.patch("easyecs.cli.step_docker_build_and_push")
     mocker.patch("easyecs.cli.fetch_containers")
     mocker.patch("easyecs.cli.fetch_aws_account")
+    mocker.patch("easyecs.cli.fetch_load_balancer_dns")
     mocker.patch("easyecs.cli.create_port_forwards")
     mocker.patch("easyecs.cloudformation.stack.create.fetch_stack_url")
     mocker.patch("easyecs.cloudformation.stack.update.fetch_stack_url")

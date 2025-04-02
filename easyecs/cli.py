@@ -14,6 +14,7 @@ from easyecs.cloudformation.fetch import (
     fetch_aws_account,
     fetch_containers,
     fetch_is_stack_created,
+    fetch_load_balancer_dns,
 )
 from easyecs.command import (
     run_nc_commands,
@@ -294,6 +295,14 @@ def action_dev(
         run=False,
         file_name=file_name,
     )
+    if ecs_manifest.load_balancer:
+        load_balancer_port = ecs_manifest.load_balancer.listener_port
+        load_balancer_dns = fetch_load_balancer_dns(stack_name)
+        print()
+        print(
+            "Your service is accessible on this URL:"
+            f" http://{load_balancer_dns}:{load_balancer_port}"
+        )
     parsed_containers = fetch_containers(user, app_name)
     print()
     create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers)
