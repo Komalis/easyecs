@@ -1,5 +1,6 @@
 #!python
 
+import tomllib
 from dataclasses import dataclass
 from signal import SIGINT
 import time
@@ -375,6 +376,13 @@ def click_dev(
 @options.file_name
 def click_delete(file_name: str):
     action_delete(file_name)
+
+
+@entrypoint.command(name="version", help="Echo the version of EasyECS")
+def click_version() -> None:
+    with open("pyproject.toml", "rb") as f:
+        data = tomllib.load(f)
+    print(data["tool"]["poetry"]["version"])
 
 
 if __name__ == "__main__":
