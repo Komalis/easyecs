@@ -185,6 +185,5 @@ def create_ecs_service(
         vpc_subnets=subnets,
         security_groups=[security_group],
         enable_execute_command=True,
-        min_healthy_percent=0,
-        circuit_breaker=DeploymentCircuitBreaker(enable=True),
+        min_healthy_percent=0
     )
