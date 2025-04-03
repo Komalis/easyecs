@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 import yaml
-from yaml import SafeLoader
+from jinja2 import Environment, FileSystemLoader
 
 from easyecs.cloudformation.fetch import (
     fetch_account_id,
@@ -16,9 +16,13 @@ from easyecs.model.ecs import EcsFileModel
 
 
 def read_ecs_file(file_name: str) -> EcsFileModel:
+    env = Environment(loader=FileSystemLoader("."))
     with open(file_name) as f:
-        data = yaml.load(f, Loader=SafeLoader)
-    return EcsFileModel(**data)
+        data = f.read()
+        template = env.from_string(data)
+        rendered_template = template.render(**os.environ)
+        rendered_data = yaml.safe_load(rendered_template)
+    return EcsFileModel(**rendered_data)
 
 
 def compute_hash_ecs_file(file_name: str):
