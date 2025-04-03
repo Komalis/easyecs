@@ -33,6 +33,7 @@ from easyecs.helpers.loader import Loader
 from easyecs.helpers.settings import (
     compute_hash_ecs_file,
     delete_hash,
+    ecs_file_to_yaml,
     load_settings,
     read_ecs_file,
     save_hash,
@@ -392,6 +393,12 @@ def click_version() -> None:
     with open("pyproject.toml", "rb") as f:
         data = tomllib.load(f)
     print(data["tool"]["poetry"]["version"])
+
+
+@entrypoint.command(name="render", help="Show a rendered ecs file")
+@options.file_name
+def click_render(file_name: str) -> None:
+    print(ecs_file_to_yaml(file_name))
 
 
 if __name__ == "__main__":

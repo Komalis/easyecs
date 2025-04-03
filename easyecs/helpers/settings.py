@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import yaml
 from jinja2 import Environment, FileSystemLoader
 
@@ -15,13 +16,33 @@ from easyecs.helpers.color import Color
 from easyecs.model.ecs import EcsFileModel
 
 
-def read_ecs_file(file_name: str) -> EcsFileModel:
+def backport_old_format_to_new_format(data: str) -> str:
+    # This function will be deprecated in the future.
+    old_format_pattern = r"{{ ?\.(\w+) ?}}"
+    matches = re.findall(old_format_pattern, data)
+    for match in matches:
+        print(
+            f"{Color.RED}Old template format has been found {{{{.{match}}}}}, please"
+            f" update it to {{{{ {match} }}}}, it will be deprecated in a near"
+            f" future.{Color.END}"
+        )
+    new_data = re.sub(old_format_pattern, r"{{ \1 }}", data)
+    return new_data
+
+
+def ecs_file_to_yaml(file_name: str) -> str:
     env = Environment(loader=FileSystemLoader("."))
     with open(file_name) as f:
         data = f.read()
+        data = backport_old_format_to_new_format(data)
         template = env.from_string(data)
         rendered_template = template.render(**os.environ)
-        rendered_data = yaml.safe_load(rendered_template)
+    return rendered_template
+
+
+def read_ecs_file(file_name: str) -> EcsFileModel:
+    rendered_template = ecs_file_to_yaml(file_name)
+    rendered_data = yaml.safe_load(rendered_template)
     return EcsFileModel(**rendered_data)
 
 
