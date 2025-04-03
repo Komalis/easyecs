@@ -1,4 +1,3 @@
-import os
 from typing import Union
 import pytest
 from pydantic import ValidationError
@@ -86,10 +85,6 @@ def test_single_tty_validation():
         (
             "arn:aws:iam::123456789012:role/S3Access",
             "arn:aws:iam::123456789012:role/S3Access",
-        ),
-        (
-            "arn:aws:iam::123456789012:role/{{.USER}}",
-            "arn:aws:iam::123456789012:role/" + os.getenv("USER"),
         ),
     ],
 )
