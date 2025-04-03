@@ -124,3 +124,24 @@ def fetch_stack_url(stack_name):
     region_name = fetch_session_region()
     url = f"https://{region_name}.console.aws.amazon.com/cloudformation/home?region={region_name}#/stacks/stackinfo?stackId={stack_arn}"  # noqa: E501
     return url
+
+
+def fetch_load_balancer_dns(stack_name):
+    client_cf = boto3.client("cloudformation")
+    res = client_cf.describe_stack_resources(StackName=stack_name)
+    resources = res["StackResources"]
+    load_balancer = list(
+        filter(
+            lambda x: x["ResourceType"] == "AWS::ElasticLoadBalancingV2::LoadBalancer",
+            resources,
+        )
+    )
+    if len(load_balancer) > 0:
+        load_balancer_arn = load_balancer[0]["PhysicalResourceId"]
+        client_elbv2 = boto3.client("elbv2")
+        load_balancer_dns = client_elbv2.describe_load_balancers(
+            LoadBalancerArns=[load_balancer_arn]
+        )["LoadBalancers"][0]["DNSName"]
+        return load_balancer_dns
+    else:
+        return None

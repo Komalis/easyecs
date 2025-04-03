@@ -59,6 +59,8 @@ def test_depends_on_container_has_depends_on(depends_on, mocker):
     mocker.patch("easyecs.cloudformation.template.create_log_group")
     mocker.patch("easyecs.cloudformation.template.create_security_group")
     mocker.patch("easyecs.cloudformation.template.create_ecs_service")
+    mocker.patch("aws_cdk.aws_elasticloadbalancingv2.NetworkLoadBalancer")
+    mocker.patch("aws_cdk.aws_ec2.SecurityGroup")
     mocker.patch("aws_cdk.aws_secretsmanager.Secret.from_secret_complete_arn")
     mocker.patch("aws_cdk.aws_ecs.ContainerImage.from_registry")
     mocker.patch("aws_cdk.aws_ecs.LogDriver.aws_logs")

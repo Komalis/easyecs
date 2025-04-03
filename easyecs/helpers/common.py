@@ -59,6 +59,7 @@ def convert_containers_to_dict(containers):
 
 def is_port_in_use(port: int) -> bool:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.5)
     try:
         s.connect(("127.0.0.1", int(port)))
         s.shutdown(2)

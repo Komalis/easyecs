@@ -69,6 +69,8 @@ def add_containers_to_task_definition(
     stack, task_definition, ecs_data, log_configuration, run
 ):
     """Add containers to the task definition."""
+    from aws_cdk import aws_ecs
+
     container_definitions = ecs_data.task_definition.containers
     dict_container_definitions = {}
 
@@ -77,6 +79,14 @@ def add_containers_to_task_definition(
             stack, container_definition, log_configuration, run
         )
         container = task_definition.add_container(**container_config)
+        for port in container_definition.ports:
+            container_port = port.split(":")[1]
+            host_port = port.split(":")[0]
+            container.add_port_mappings(
+                aws_ecs.PortMapping(
+                    container_port=int(container_port), host_port=int(host_port)
+                )
+            )
         add_mount_points_to_container(container, container_definition.efs_volumes)
         dict_container_definitions[container_definition.name] = {
             "container": container,

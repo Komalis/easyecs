@@ -1,7 +1,7 @@
 import os
 import re
 from typing import Dict, List, Optional, Union
-from pydantic import BaseModel, computed_field, field_validator
+from pydantic import BaseModel, computed_field, field_validator, model_validator
 from pathlib import Path
 
 from easyecs.helpers.common import template_with_env_var
@@ -112,6 +112,7 @@ class EcsFileContainerModel(BaseModel):
     volumes: List[str] = []
     healthcheck: Optional[EcsFileContainerHealthCheckModel] = None
     depends_on: Optional[Dict[str, Dict[str, str]]] = None
+    ports: Optional[List[str]] = None
 
     @field_validator("volumes")
     def validate_volumes(cls, volumes):
@@ -153,8 +154,48 @@ class EcsTaskDefinitionModel(BaseModel):
         return efs_volumes
 
 
+class SecurityGroupRule(BaseModel):
+    name: str
+    port: int
+    cidr: Optional[str] = None
+    prefix_list: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_cidr(self):
+        if self.prefix_list is not None and self.cidr is not None:
+            raise ValueError("A rule is either a CIDR or a prefix list, not both!")
+        if self.prefix_list is None and self.cidr is None:
+            raise ValueError("A rule is either a CIDR or a prefix list, not none!")
+        return self
+
+
+class SecurityGroupRules(BaseModel):
+    egress: List[SecurityGroupRule] = []
+    ingress: List[SecurityGroupRule] = []
+
+
+class EcsLoadBalancerModel(BaseModel):
+    listener_port: int
+    target_group_port: int
+    subnets: list[str] = []
+    load_balancer_name: Optional[str] = None
+    arn: Optional[str] = None
+    security_group_id: Optional[str] = None
+    security_group_rules: Optional[SecurityGroupRules] = None
+
+    @model_validator(mode="after")
+    def validate_subnets(self):
+        if len(self.subnets) == 0 and self.arn is None:
+            raise ValueError(
+                "If you do not provide an ARN of a NetworkLoadBalancer, please provide"
+                " a subnets list to create one"
+            )
+        return self
+
+
 class EcsFileModel(BaseModel):
     metadata: EcsFileMetadataModel
     role: EcsFileRoleModel
     execution_role: EcsFileRoleModel
     task_definition: EcsTaskDefinitionModel
+    load_balancer: Optional[EcsLoadBalancerModel] = None
