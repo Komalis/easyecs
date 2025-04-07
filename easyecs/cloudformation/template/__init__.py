@@ -128,6 +128,20 @@ def create_load_balancer(stack, ecs_manifest: EcsFileModel, vpc):
                             ),
                             description=egress_rule.name,
                         )
+                    elif egress_rule.security_group_id:
+                        lb_security_group.add_egress_rule(
+                            peer=SecurityGroup.from_security_group_id(
+                                stack,
+                                "egress_rule_sg",
+                                security_group_id=egress_rule.security_group_id,
+                            ),
+                            connection=(
+                                Port.tcp(egress_rule.port)
+                                if egress_rule.port != -1
+                                else Port.all_traffic()
+                            ),
+                            description=egress_rule.name,
+                        )
             if ecs_manifest.load_balancer.security_group_rules.ingress:
                 for (
                     ingress_rule
@@ -149,6 +163,20 @@ def create_load_balancer(stack, ecs_manifest: EcsFileModel, vpc):
                     elif ingress_rule.prefix_list:
                         lb_security_group.add_ingress_rule(
                             peer=Peer.prefix_list(ingress_rule.prefix_list),
+                            connection=(
+                                Port.tcp(ingress_rule.port)
+                                if ingress_rule.port != -1
+                                else Port.all_traffic()
+                            ),
+                            description=ingress_rule.name,
+                        )
+                    elif ingress_rule.security_group_id:
+                        lb_security_group.add_ingress_rule(
+                            peer=SecurityGroup.from_security_group_id(
+                                stack,
+                                "ingress_rule_sg",
+                                security_group_id=ingress_rule.security_group_id,
+                            ),
                             connection=(
                                 Port.tcp(ingress_rule.port)
                                 if ingress_rule.port != -1

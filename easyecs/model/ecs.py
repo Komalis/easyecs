@@ -150,13 +150,30 @@ class SecurityGroupRule(BaseModel):
     port: int
     cidr: Optional[str] = None
     prefix_list: Optional[str] = None
+    security_group_id: Optional[str] = None
 
     @model_validator(mode="after")
     def validate_cidr(self):
-        if self.prefix_list is not None and self.cidr is not None:
-            raise ValueError("A rule is either a CIDR or a prefix list, not both!")
-        if self.prefix_list is None and self.cidr is None:
-            raise ValueError("A rule is either a CIDR or a prefix list, not none!")
+        has_at_least_two_true = lambda lst: sum(lst) >= 2  # noqa: E731
+        if has_at_least_two_true(
+            [
+                self.prefix_list is not None,
+                self.cidr is not None,
+                self.security_group_id is not None,
+            ]
+        ):
+            raise ValueError(
+                "A rule is either a CIDR, a security group id or a prefix list!"
+            )
+        if (
+            self.prefix_list is None
+            and self.cidr is None
+            and self.security_group_id is None
+        ):
+            raise ValueError(
+                "A rule is either a CIDR, a security group id or a prefix list, not"
+                " none!"
+            )
         return self
 
 
