@@ -1,6 +1,6 @@
 #!python
 
-import tomllib
+from importlib.metadata import version
 from dataclasses import dataclass
 from signal import SIGINT
 import time
@@ -390,9 +390,7 @@ def click_delete(file_name: str):
 
 @entrypoint.command(name="version", help="Echo the version of EasyECS")
 def click_version() -> None:
-    with open("pyproject.toml", "rb") as f:
-        data = tomllib.load(f)
-    print(data["tool"]["poetry"]["version"])
+    print(version("easyecs"))
 
 
 @entrypoint.command(name="render", help="Show a rendered ecs file")
