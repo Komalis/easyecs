@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, computed_field, field_validator, model_validator
 from pathlib import Path
 
@@ -71,6 +71,11 @@ class EcsFileSecretModel(BaseModel):
     active: bool = True
 
 
+class EcsFileSecretModelV2(BaseModel):
+    name: str
+    valueFrom: str
+
+
 class EcsFileVolumeModel(BaseModel):
     name: str
     id: str
@@ -101,8 +106,8 @@ class EcsFileContainerModel(BaseModel):
     resources: EcsFileResourcesModel
     build: Optional[EcsFileBuildModel] = None
     port_forward: List[str] = []
-    env: List[EcsFileEnvModel] = []
-    secrets: List[EcsFileSecretModel] = []
+    env: List[EcsFileEnvModel] | Dict[str, Any] | None = None
+    secrets: List[EcsFileSecretModel] | List[EcsFileSecretModelV2] = []
     efs_volumes: List[EcsFileVolumeModel] = []
     volumes: List[str] = []
     healthcheck: Optional[EcsFileContainerHealthCheckModel] = None
