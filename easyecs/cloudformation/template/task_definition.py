@@ -1,3 +1,7 @@
+import re
+from easyecs.model.ecs import EcsFileSecretModel, EcsFileSecretModelV2
+
+
 def create_task_definition(
     stack, service_name, task_role, execution_role, log_group, ecs_data, run=False
 ):
@@ -116,11 +120,15 @@ def extract_container_config(stack, container_definition, log_configuration, run
     if tty and not run:
         command = ["sleep", "infinity"]
 
-    environment = {
-        env_definition.name: env_definition.value
-        for env_definition in container_definition.env
-        if env_definition.active
-    }
+    environment = {}
+    if isinstance(container_definition.env, list):
+        environment = {
+            env_definition.name: env_definition.value
+            for env_definition in container_definition.env
+            if env_definition.active
+        }
+    elif isinstance(container_definition.env, dict):
+        environment = container_definition.env
 
     secrets = extract_secrets(stack, container_definition.secrets, name)
 
@@ -157,12 +165,33 @@ def extract_secrets(stack, secret_definitions, container_name):
     """Extract container secrets from its definition."""
     secrets = {}
     for secret_definition in secret_definitions:
-        secret_name = secret_definition.name
-        secret = Secret.from_secret_complete_arn(
-            stack, f"{secret_name}_{container_name}", secret_definition.arn
-        )
-        ecs_secret = ECSSecret.from_secrets_manager(secret, secret_definition.field)
-        secrets[secret_name] = ecs_secret
+        if isinstance(secret_definition, EcsFileSecretModel):
+            secret_name = secret_definition.name
+            secret = Secret.from_secret_complete_arn(
+                stack, f"{secret_name}_{container_name}", secret_definition.arn
+            )
+            ecs_secret = ECSSecret.from_secrets_manager(secret, secret_definition.field)
+            secrets[secret_name] = ecs_secret
+        elif isinstance(secret_definition, EcsFileSecretModelV2):
+            arn_fields = list(
+                re.finditer(
+                    r"^^(?P<secret_complete_arn>arn:aws:secretsmanager:(?P<region_name>[a-z0-9-]+):(?P<account_id>\d{12}):secret:(?P<secret_name>[^:]+))(?::(?P<field>[^:]*))?(?::([^:]*))?(?::([^:]*))?$",  # noqa
+                    secret_definition.valueFrom,
+                )
+            )
+            if not arn_fields:
+                raise ValueError(f"Invalid ARN format: {secret_definition.valueFrom}")
+            secret_complete_arn = arn_fields[0].groupdict()["secret_complete_arn"]
+            field = arn_fields[0].groupdict()["field"]
+            print(secret_definition.valueFrom)
+            secret_name = secret_definition.name
+            secret = Secret.from_secret_complete_arn(
+                stack, f"{secret_name}_{container_name}", secret_complete_arn
+            )
+            ecs_secret = ECSSecret.from_secrets_manager(secret, field=field)
+            secrets[secret_name] = ecs_secret
+        else:
+            raise Exception("Unsupported secret type")
     return secrets
 
 
