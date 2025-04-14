@@ -1,3 +1,4 @@
+from hashlib import md5
 import json
 import os
 import subprocess
@@ -91,8 +92,11 @@ def run_sync_thread(parsed_containers, ecs_manifest):
         if len(container.volumes) > 0:
             observer = Observer()
             container_name = container.name
-            port = parsed_containers[container_name].get("netcat_port", None)
             for volume in container.volumes:
+                md5_volume = md5(volume.encode("utf-8")).hexdigest()
+                port = parsed_containers[container_name].get(
+                    f"netcat_port_{md5_volume}", None
+                )
                 _from, _ = volume.split(":")
                 event_handler = SynchronizeEventHandler(volume, port)
                 event_handlers.append(event_handler)
@@ -172,8 +176,11 @@ def run_nc_command(
     for container in containers:
         if len(container.volumes) > 0:
             for volume in container.volumes:
+                md5_volume = md5(volume.encode("utf-8")).hexdigest()
                 random_port = generate_random_port()
-                parsed_containers[container_name]["netcat_port"] = random_port
+                parsed_containers[container_name][
+                    f"netcat_port_{md5_volume}"
+                ] = random_port
                 port_forward(
                     parsed_containers,
                     container_name,
@@ -184,15 +191,28 @@ def run_nc_command(
                 )
                 client = boto3.client("ssm")
                 target = parsed_containers.get(container_name)["ssm_target"]
-                command_server = [
-                    f"bash -c 'while true; do nc -v -l {random_port} >"
-                    f" /tmp/{random_port}.tar.gz.tmp; cp /tmp/{random_port}.tar.gz.tmp"
-                    f" /tmp/{random_port}.copy.tar.gz; fc=$(cat"
-                    f" /tmp/{random_port}.copy.tar.gz | tar -ztf - | head -c1); if ["
-                    f" $fc = . ]; then cat /tmp/{random_port}.copy.tar.gz | tar -xzf -;"
-                    f" else cat /tmp/{random_port}.copy.tar.gz | tar -xzf - -C /; fi;"
-                    " done'"
-                ]
+                command_server = [f"""
+                    bash -c '
+                        set -x
+                        set -u
+                        while true
+                        do
+                            RANDOM_PORT={random_port}
+                            RANDOM_NUMBER=$RANDOM
+                            nc -v -l ${{RANDOM_PORT}} > /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.tar.gz.tmp
+                            cp /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.tar.gz.tmp /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.copy.tar.gz
+                            rm /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.tar.gz.tmp
+                            fc=$(cat /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.copy.tar.gz | tar -ztf - | head -c1)
+                            if [ $fc = . ]
+                            then
+                                cat /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.copy.tar.gz | tar -xzf -
+                            else
+                                # cat /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.copy.tar.gz | tar -xzf - -C /
+                                tar -xzf /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.copy.tar.gz -C /
+                            fi
+                            rm /tmp/${{RANDOM_PORT}}.${{RANDOM_NUMBER}}.copy.tar.gz
+                        done'
+                    """]  # noqa
                 parameters_nc_server = {"command": command_server}
                 ssm_nc_server = client.start_session(
                     Target=target,
