@@ -2,7 +2,6 @@ import json
 import os
 import random
 import re
-import time
 from typing import Dict
 import boto3
 import socket
@@ -84,6 +83,5 @@ def generate_random_port():
     random_port = random.randint(1024, 65535)
     while is_port_in_use(random_port):
         random_port = random.randint(1024, 65535)
-        time.sleep(0.1)
     random_port = str(random_port)
     return random_port
