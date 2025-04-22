@@ -41,7 +41,12 @@ def create_template(
     ecs_cluster = create_ecs_cluster(stack, service_name, vpc)
     log_group = create_log_group(stack, service_name)
     sg = create_security_group(
-        stack, service_name, vpc, ecs_manifest, lb_security_group
+        stack,
+        service_name,
+        vpc,
+        ecs_manifest,
+        lb_security_group,
+        ecs_manifest.security_group_id,
     )
     task_definition = create_task_definition(
         stack,
@@ -300,11 +305,25 @@ def create_log_group(stack, service_name):
     return LogGroup(stack, log_group_name)
 
 
-def create_security_group(stack, service_name, vpc, ecs_manifest, lb_security_group):
+def create_security_group(
+    stack,
+    service_name,
+    vpc,
+    ecs_manifest,
+    lb_security_group,
+    security_group_id: str = None,
+):
     from aws_cdk.aws_ec2 import ISecurityGroup, SecurityGroup, Port
 
     sg_name = f"{service_name}-sg"
-    sg: ISecurityGroup = SecurityGroup(stack, sg_name, vpc=vpc, allow_all_outbound=True)
+    if security_group_id:
+        sg = SecurityGroup.from_security_group_id(
+            stack, sg_name, security_group_id=security_group_id, mutable=False
+        )
+    else:
+        sg: ISecurityGroup = SecurityGroup(
+            stack, sg_name, vpc=vpc, allow_all_outbound=True
+        )
     if ecs_manifest.load_balancer:
         sg.add_ingress_rule(
             peer=lb_security_group,

@@ -112,7 +112,7 @@ class EcsFileContainerModel(BaseModel):
     volumes: List[str] = []
     healthcheck: Optional[EcsFileContainerHealthCheckModel] = None
     depends_on: Optional[Dict[str, Dict[str, str]]] = None
-    ports: Optional[List[str]] = None
+    ports: Optional[List[str]] = []
 
     @field_validator("volumes")
     def validate_volumes(cls, volumes):
@@ -212,3 +212,4 @@ class EcsFileModel(BaseModel):
     execution_role: EcsFileRoleModel
     task_definition: EcsTaskDefinitionModel
     load_balancer: Optional[EcsLoadBalancerModel] = None
+    security_group_id: Optional[str] = None

@@ -183,7 +183,6 @@ def extract_secrets(stack, secret_definitions, container_name):
                 raise ValueError(f"Invalid ARN format: {secret_definition.valueFrom}")
             secret_complete_arn = arn_fields[0].groupdict()["secret_complete_arn"]
             field = arn_fields[0].groupdict()["field"]
-            print(secret_definition.valueFrom)
             secret_name = secret_definition.name
             secret = Secret.from_secret_complete_arn(
                 stack, f"{secret_name}_{container_name}", secret_complete_arn
