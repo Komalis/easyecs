@@ -20,6 +20,7 @@ def docker_build_cmd(build, image_name):
     build_cmd_params += ["--platform=linux/amd64", build.context]
 
     build_cmd = " ".join(build_cmd_params)
+
     return build_cmd
 
 
