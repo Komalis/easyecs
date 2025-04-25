@@ -318,7 +318,7 @@ def create_security_group(
     sg_name = f"{service_name}-sg"
     if security_group_id:
         sg = SecurityGroup.from_security_group_id(
-            stack, sg_name, security_group_id=security_group_id, mutable=False
+            stack, sg_name, security_group_id=security_group_id
         )
     else:
         sg: ISecurityGroup = SecurityGroup(
