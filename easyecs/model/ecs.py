@@ -110,6 +110,7 @@ class EcsFileContainerModel(BaseModel):
     secrets: List[EcsFileSecretModel] | List[EcsFileSecretModelV2] = []
     efs_volumes: List[EcsFileVolumeModel] = []
     volumes: List[str] = []
+    volumes_excludes: List[str] = []
     healthcheck: Optional[EcsFileContainerHealthCheckModel] = None
     depends_on: Optional[Dict[str, Dict[str, str]]] = None
     ports: Optional[List[str]] = []
@@ -124,6 +125,17 @@ class EcsFileContainerModel(BaseModel):
             resolved_from_dir = Path(_from).parent.resolve()
             resolved_from_file = Path(_from).name
             resolved_volumes.append(f"{resolved_from_dir}/{resolved_from_file}:{_to}")
+        return resolved_volumes
+
+    @field_validator("volumes_excludes")
+    def validate_volumes_excludes(cls, volumes):
+        resolved_volumes = []
+        for volume in volumes:
+            if not os.path.exists(volume):
+                raise FileNotFoundException(f"{volume} does not exists!")
+            resolved_from_dir = Path(volume).parent.resolve()
+            resolved_from_file = Path(volume).name
+            resolved_volumes.append(f"{resolved_from_dir}/{resolved_from_file}")
         return resolved_volumes
 
 
