@@ -1,6 +1,7 @@
 import datetime
 import os
 from os.path import dirname, basename
+from pathlib import Path
 import time
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 import tarfile
@@ -9,10 +10,25 @@ import socket
 from easyecs.helpers.color import Color
 
 
-def create_tar_for_sync(input, output_dirname, port):
+def create_tar_for_sync(input, output_dirname, port, volumes_excludes):
+    input_path = Path(input)
     with tarfile.open(f"/tmp/{port}.copy.tar.gz", "w:gz") as f:
-        filename = basename(input)
-        f.add(input, arcname=f"{output_dirname}/{filename}")
+        if input_path.is_dir():
+            for root, dirs, files in os.walk(input_path):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, input_path)
+                    archive_name = os.path.join(output_dirname, rel_path)
+                    found_exclude = False
+                    for volume_exclude in volumes_excludes:
+                        if volume_exclude in full_path:
+                            found_exclude = True
+                            break
+                    if not found_exclude:
+                        f.add(full_path, arcname=archive_name)
+        else:
+            filename = basename(input)
+            f.add(input, arcname=f"{output_dirname}/{filename}")
 
 
 def netcat(hostname, port, content, input, output):
@@ -38,7 +54,7 @@ def netcat(hostname, port, content, input, output):
 
 
 class SynchronizeEventHandler(FileSystemEventHandler):
-    def __init__(self, volume, port):
+    def __init__(self, volume, port, volumes_excludes):
         super().__init__()
         self.volume = volume
         self.port = port
@@ -47,10 +63,13 @@ class SynchronizeEventHandler(FileSystemEventHandler):
         self.input_dirname = dirname(self.input)
         self.output_dirname = dirname(self.output)
         self.last_event = datetime.datetime.now().timestamp()
+        self.volumes_excludes = volumes_excludes
 
     def synchronize(self):
         port = int(self.port)
-        create_tar_for_sync(self.input, self.output_dirname, port)
+        create_tar_for_sync(
+            self.input, self.output_dirname, port, self.volumes_excludes
+        )
         f = open(f"/tmp/{port}.copy.tar.gz", "rb")
         data = f.read()
         netcat("127.0.0.1", port, data, self.input, self.output_dirname)

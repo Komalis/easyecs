@@ -98,7 +98,9 @@ def run_sync_thread(parsed_containers, ecs_manifest):
                     f"netcat_port_{md5_volume}", None
                 )
                 _from, _ = volume.split(":")
-                event_handler = SynchronizeEventHandler(volume, port)
+                event_handler = SynchronizeEventHandler(
+                    volume, port, container.volumes_excludes
+                )
                 event_handlers.append(event_handler)
                 observer.schedule(event_handler, _from, recursive=True)
             observer.daemon = True
