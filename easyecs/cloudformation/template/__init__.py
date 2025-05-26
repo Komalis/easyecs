@@ -357,14 +357,9 @@ def create_ecs_service(
 
 def create_autodestroy(stack, deployment_timeout: int):
     from pathlib import Path
-    from aws_cdk.aws_events import (
-        Rule,
-        Schedule
-    )
+    from aws_cdk.aws_events import Rule, Schedule
     from aws_cdk.aws_events_targets import LambdaFunction
-    from aws_cdk.aws_iam import (
-        PolicyStatement
-    )
+    from aws_cdk.aws_iam import PolicyStatement
     from aws_cdk import aws_lambda, Duration
     from aws_cdk.aws_logs import RetentionDays
 
@@ -373,7 +368,9 @@ def create_autodestroy(stack, deployment_timeout: int):
         resources=["*"],
     )
 
-    lambda_function_file = str(Path(__file__).parent.parent / "auto_destruction/harakiri.py")
+    lambda_function_file = str(
+        Path(__file__).parent.parent / "auto_destruction/harakiri.py"
+    )
     harakiri = aws_lambda.Function(
         stack,
         "AutoDestroy",
@@ -387,6 +384,8 @@ def create_autodestroy(stack, deployment_timeout: int):
     harakiri.add_to_role_policy(lambdaDeleteStackPolicy)
 
     lambda_rule = Rule(
-        stack, "TimeToDestroy", schedule=Schedule.rate(Duration.minutes(deployment_timeout))
+        stack,
+        "TimeToDestroy",
+        schedule=Schedule.rate(Duration.minutes(deployment_timeout)),
     )
     lambda_rule.add_target(LambdaFunction(handler=harakiri))
