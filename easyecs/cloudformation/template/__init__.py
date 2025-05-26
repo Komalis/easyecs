@@ -67,6 +67,9 @@ def create_template(
             targets=[service],
         )
 
+    if ecs_manifest.metadata.auto_destruction is not None:
+        create_autodestroy(stack, ecs_manifest.metadata.auto_destruction)
+
     app.synth()
 
 
@@ -350,3 +353,40 @@ def create_ecs_service(
         enable_execute_command=True,
         min_healthy_percent=0,
     )
+
+
+def create_autodestroy(stack, deployment_timeout: int):
+    from pathlib import Path
+    from aws_cdk.aws_events import (
+        Rule,
+        Schedule
+    )
+    from aws_cdk.aws_events_targets import LambdaFunction
+    from aws_cdk.aws_iam import (
+        PolicyStatement
+    )
+    from aws_cdk import aws_lambda, Duration
+    from aws_cdk.aws_logs import RetentionDays
+
+    lambdaDeleteStackPolicy = PolicyStatement(
+        actions=["cloudformation:DeleteStack", "lambda:RemovePermission"],
+        resources=["*"],
+    )
+
+    lambda_function_file = str(Path(__file__).parent.parent / "auto_destruction/harakiri.py")
+    harakiri = aws_lambda.Function(
+        stack,
+        "AutoDestroy",
+        code=aws_lambda.Code.from_inline(open(lambda_function_file).read()),
+        handler="index.handler",
+        timeout=Duration.seconds(300),
+        log_retention=RetentionDays.ONE_MONTH,
+        environment={"StackName": stack.artifact_id},
+        runtime=aws_lambda.Runtime.PYTHON_3_11,
+    )
+    harakiri.add_to_role_policy(lambdaDeleteStackPolicy)
+
+    lambda_rule = Rule(
+        stack, "TimeToDestroy", schedule=Schedule.rate(Duration.minutes(deployment_timeout))
+    )
+    lambda_rule.add_target(LambdaFunction(handler=harakiri))
