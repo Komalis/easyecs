@@ -10,6 +10,7 @@ from easyecs.helpers.exceptions import FileNotFoundException
 class EcsFileMetadataModel(BaseModel):
     appname: str
     user: str = os.environ["USER"]
+    auto_destruction: Optional[int] = None
 
 
 class EcsFileStatementModel(BaseModel):
