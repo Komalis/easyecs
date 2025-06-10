@@ -79,6 +79,7 @@ def test_depends_on_container_has_depends_on(depends_on, mocker):
     container = MagicMock()
     container.depends_on = depends_on
     ecs_data.task_definition.containers = [container]
+    ecs_data.metadata.auto_destruction = None
 
     create_template(
         "test_service",

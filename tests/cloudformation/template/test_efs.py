@@ -36,6 +36,7 @@ def test_efs_add_mount_points_if_container_has_efs_volumes(efs_volumes, count, m
     ecs_data.task_definition.efs_volumes = [MagicMock(), MagicMock()]
     container = MagicMock()
     container.efs_volumes = efs_volumes
+    ecs_data.metadata.auto_destruction = None
     ecs_data.task_definition.containers = [container]
 
     create_template(

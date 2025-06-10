@@ -58,6 +58,7 @@ def test_command_is_always_sleep_when_tty(mocker):
 
     container = _create_mock_container()
     ecs_data = _create_mock_ecs_data(container)
+    ecs_data.metadata.auto_destruction = None
 
     create_template(
         "test_service",
@@ -95,6 +96,7 @@ def test_command_is_always_sleep_when_run(mocker):
     container = _create_mock_container()
     container.tty = True
     ecs_data = _create_mock_ecs_data(container)
+    ecs_data.metadata.auto_destruction = None
 
     create_template(
         "test_service",

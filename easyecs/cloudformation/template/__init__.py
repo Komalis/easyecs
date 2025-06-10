@@ -68,6 +68,9 @@ def create_template(
         )
 
     if ecs_manifest.metadata.auto_destruction is not None:
+        assert isinstance(
+            ecs_manifest.metadata.auto_destruction, int
+        ), "auto_destruction must be an Integer (minutes)"
         create_autodestroy(stack, ecs_manifest.metadata.auto_destruction)
 
     app.synth()
