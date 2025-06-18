@@ -364,7 +364,6 @@ def create_autodestroy(stack, deployment_timeout: int):
     from aws_cdk.aws_events_targets import LambdaFunction
     from aws_cdk.aws_iam import PolicyStatement
     from aws_cdk import aws_lambda, Duration
-    from aws_cdk.aws_logs import RetentionDays
 
     lambdaDeleteStackPolicy = PolicyStatement(
         actions=["cloudformation:DeleteStack", "lambda:RemovePermission"],
@@ -380,7 +379,6 @@ def create_autodestroy(stack, deployment_timeout: int):
         code=aws_lambda.Code.from_inline(open(lambda_function_file).read()),
         handler="index.handler",
         timeout=Duration.seconds(300),
-        log_retention=RetentionDays.ONE_MONTH,
         environment={"StackName": stack.artifact_id},
         runtime=aws_lambda.Runtime.PYTHON_3_11,
     )
