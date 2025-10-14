@@ -122,7 +122,6 @@ def run_sftp_sync_thread(ecs_manifest, aws_region, aws_account, parsed_container
 
                 )
                 event_handlers.append(event_handler)
-                print("Scheduling SFTP sync for volume:", volume)
                 observer.schedule(event_handler, _from, recursive=True)
             observer.daemon = True
             observer.start()
@@ -310,9 +309,25 @@ def install_netcat_command(target, aws_region, aws_account) -> None:
             stdout=stdout,
         )
 
-def install_sshd_client(target, aws_region, aws_account) -> None:
+def install_sshd_client(target, aws_region, aws_account, auto_install_override) -> None:
+    DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
     client = boto3.client("ssm")
-    commands_server = [["apt update"], ["/bin/bash -c 'DEBIAN_FRONTEND=noninteractive apt install -y openssh-server'"], ["/bin/bash -c 'echo 'root:root' | chpasswd'"], ["mkdir /run/sshd"], ["/bin/bash -c 'echo \"PermitRootLogin yes\" >> /etc/ssh/sshd_config'"], ["/bin/bash -c 'echo \"Port 2312\" >> /etc/ssh/sshd_config'"]]
+    if len(auto_install_override) > 0:
+        if DEBUG_EASYECS:
+            print(f"{Color.YELLOW}Using auto install override commands:{Color.END}")
+            for cmd in auto_install_override:
+                print(f" - {' '.join(cmd)}")
+        commands_server = auto_install_override
+    else:
+        if DEBUG_EASYECS:
+            print(f"{Color.YELLOW}Using default auto install commands:{Color.END}")
+            print(" - apt update")
+            print(" - apt install -y openssh-server")
+            print(" - echo 'root:root' | chpasswd")
+            print(" - mkdir /run/sshd")
+            print(' - echo "PermitRootLogin yes" >> /etc/ssh/sshd_config')
+            print(' - echo "Port 2312" >> /etc/ssh/sshd_config')
+        commands_server = [["apt update"], ["/bin/bash -c 'DEBIAN_FRONTEND=noninteractive apt install -y openssh-server'"], ["/bin/bash -c 'echo 'root:root' | chpasswd'"], ["mkdir /run/sshd"], ["/bin/bash -c 'echo \"PermitRootLogin yes\" >> /etc/ssh/sshd_config'"], ["/bin/bash -c 'echo \"Port 2312\" >> /etc/ssh/sshd_config'"]]
     for command_server in commands_server:
         parameters_nc_server = {"command": command_server}
         ssm_nc_server = client.start_session(
@@ -329,7 +344,6 @@ def install_sshd_client(target, aws_region, aws_account) -> None:
             json.dumps(dict(Target=target)),
             "https://ssm.eu-west-1.amazonaws.com",
         ]
-        DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
         stdout = None if DEBUG_EASYECS else subprocess.DEVNULL
         subprocess.run(
             cmd_nc_server,
@@ -381,7 +395,7 @@ def check_sshd_command(target, aws_region, aws_account):
     return "/sshd" in output.decode("utf8").split("\n")[2]
 
 def run_sftp_commands(
-    parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_sftp
+    parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_sftp, auto_install_override
 ):
     containers = ecs_manifest.task_definition.containers
     for container in containers:
@@ -409,7 +423,7 @@ def run_sftp_commands(
                 )
             else:
                 if not has_sshd and auto_install_sftp:
-                    install_sshd_client(ssm_target, aws_region, aws_account)
+                    install_sshd_client(ssm_target, aws_region, aws_account, auto_install_override)
                 run_sshd_command(
                     parsed_containers,
                     aws_region,
