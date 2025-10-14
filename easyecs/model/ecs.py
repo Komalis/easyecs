@@ -226,3 +226,4 @@ class EcsFileModel(BaseModel):
     task_definition: EcsTaskDefinitionModel
     load_balancer: Optional[EcsLoadBalancerModel] = None
     security_group_id: Optional[str] = None
+    copy_method: str = "nc"
