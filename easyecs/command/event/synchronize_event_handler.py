@@ -57,8 +57,12 @@ def netcat(hostname, port, content, input, output):
             retry += 1
             time.sleep(1)
 
-def sftp(target, aws_region, aws_account, hostname, port, input, output, volumes_excludes):
+
+def sftp(
+    target, aws_region, aws_account, hostname, port, input, output, volumes_excludes
+):
     from easyecs.command import generate_ssm_cmd
+
     DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
     try:
         ssh = paramiko.SSHClient()
@@ -67,11 +71,13 @@ def sftp(target, aws_region, aws_account, hostname, port, input, output, volumes
 
         with SCPClient(ssh.get_transport()) as scp:
             if DEBUG_EASYECS:
-                print(f"\n{Color.GRAY}SFTP synchronizing {input} to {output} ...{Color.END}", end="")
+                print(
+                    f"\n{Color.GRAY}SFTP synchronizing {input} to"
+                    f" {output} ...{Color.END}",
+                    end="",
+                )
             tar_name = hashlib.md5(input.encode()).hexdigest()
-            create_tar_for_sync(
-                input, output, tar_name, volumes_excludes
-            )
+            create_tar_for_sync(input, output, tar_name, volumes_excludes)
             if os.path.isdir(input):
                 scp.put(f"/tmp/{tar_name}.copy.tar.gz", "/tmp")
                 command_server = [f"""
@@ -153,6 +159,7 @@ class SynchronizeEventHandler(FileSystemEventHandler):
                             super().dispatch(event)
                             self.last_event = datetime.datetime.now().timestamp()
 
+
 class SynchronizeSFTPEventHandler(FileSystemEventHandler):
     def __init__(self, target, aws_region, aws_account, volume, volumes_excludes):
         super().__init__()
@@ -168,7 +175,16 @@ class SynchronizeSFTPEventHandler(FileSystemEventHandler):
         self.volumes_excludes = volumes_excludes
 
     def synchronize(self):
-        sftp(self.target, self.aws_region, self.aws_account, "127.0.0.1", 2312, self.input, self.output_dirname, self.volumes_excludes)
+        sftp(
+            self.target,
+            self.aws_region,
+            self.aws_account,
+            "127.0.0.1",
+            2312,
+            self.input,
+            self.output_dirname,
+            self.volumes_excludes,
+        )
 
     def dispatch(self, event: FileSystemEvent):
         delta = datetime.datetime.now().timestamp() - self.last_event

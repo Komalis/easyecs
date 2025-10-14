@@ -6,7 +6,10 @@ import time
 import boto3
 import signal
 from watchdog.observers import Observer
-from easyecs.command.event.synchronize_event_handler import SynchronizeEventHandler, SynchronizeSFTPEventHandler
+from easyecs.command.event.synchronize_event_handler import (
+    SynchronizeEventHandler,
+    SynchronizeSFTPEventHandler,
+)
 from easyecs.helpers.color import Color
 from easyecs.helpers.common import generate_random_port, is_port_in_use
 from easyecs.helpers.loader import Loader
@@ -119,7 +122,6 @@ def run_sftp_sync_thread(ecs_manifest, aws_region, aws_account, parsed_container
                 _from, _ = volume.split(":")
                 event_handler = SynchronizeSFTPEventHandler(
                     target, aws_region, aws_account, volume, container.volumes_excludes
-
                 )
                 event_handlers.append(event_handler)
                 observer.schedule(event_handler, _from, recursive=True)
@@ -190,6 +192,7 @@ def generate_ssm_cmd(ssm_nc_server, aws_region, aws_account, target):
         f"https://ssm.{aws_region}.amazonaws.com",
     ]
 
+
 def run_sshd_command(
     parsed_containers, aws_region, aws_account, container_name, ecs_manifest
 ):
@@ -217,6 +220,7 @@ def run_sshd_command(
                 stdout=stdout,
             )
             popen_procs_port_forward.append(proc_nc_server)
+
 
 def run_nc_command(
     parsed_containers, aws_region, aws_account, container_name, ecs_manifest
@@ -309,6 +313,7 @@ def install_netcat_command(target, aws_region, aws_account) -> None:
             stdout=stdout,
         )
 
+
 def install_sshd_client(target, aws_region, aws_account, auto_install_override) -> None:
     DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
     client = boto3.client("ssm")
@@ -327,7 +332,17 @@ def install_sshd_client(target, aws_region, aws_account, auto_install_override) 
             print(" - mkdir /run/sshd")
             print(' - echo "PermitRootLogin yes" >> /etc/ssh/sshd_config')
             print(' - echo "Port 2312" >> /etc/ssh/sshd_config')
-        commands_server = [["apt update"], ["/bin/bash -c 'DEBIAN_FRONTEND=noninteractive apt install -y openssh-server'"], ["/bin/bash -c 'echo 'root:root' | chpasswd'"], ["mkdir /run/sshd"], ["/bin/bash -c 'echo \"PermitRootLogin yes\" >> /etc/ssh/sshd_config'"], ["/bin/bash -c 'echo \"Port 2312\" >> /etc/ssh/sshd_config'"]]
+        commands_server = [
+            ["apt update"],
+            [
+                "/bin/bash -c 'DEBIAN_FRONTEND=noninteractive apt install -y"
+                " openssh-server'"
+            ],
+            ["/bin/bash -c 'echo 'root:root' | chpasswd'"],
+            ["mkdir /run/sshd"],
+            ["/bin/bash -c 'echo \"PermitRootLogin yes\" >> /etc/ssh/sshd_config'"],
+            ["/bin/bash -c 'echo \"Port 2312\" >> /etc/ssh/sshd_config'"],
+        ]
     for command_server in commands_server:
         parameters_nc_server = {"command": command_server}
         ssm_nc_server = client.start_session(
@@ -373,6 +388,7 @@ def check_nc_command(target, aws_region, aws_account):
     output = subprocess.check_output(cmd_nc_server, start_new_session=True)
     return "/nc" in output.decode("utf8").split("\n")[2]
 
+
 def check_sshd_command(target, aws_region, aws_account):
     client = boto3.client("ssm")
     command_server = ["which sshd"]
@@ -394,8 +410,14 @@ def check_sshd_command(target, aws_region, aws_account):
     output = subprocess.check_output(cmd_nc_server, start_new_session=True)
     return "/sshd" in output.decode("utf8").split("\n")[2]
 
+
 def run_sftp_commands(
-    parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_sftp, auto_install_override
+    parsed_containers,
+    aws_region,
+    aws_account,
+    ecs_manifest,
+    auto_install_sftp,
+    auto_install_override,
 ):
     containers = ecs_manifest.task_definition.containers
     for container in containers:
@@ -417,13 +439,15 @@ def run_sftp_commands(
             if not has_sshd and not auto_install_sftp:
                 print(
                     f"{Color.YELLOW}In order to use volumes on container"
-                    f" {container_name}, you need to install openssh-server command on the"
-                    " container and on the host machine!\nYou can try to install it on"
-                    f" the container using --auto-install-sftp{Color.END}"
+                    f" {container_name}, you need to install openssh-server command on"
+                    " the container and on the host machine!\nYou can try to install"
+                    f" it on the container using --auto-install-sftp{Color.END}"
                 )
             else:
                 if not has_sshd and auto_install_sftp:
-                    install_sshd_client(ssm_target, aws_region, aws_account, auto_install_override)
+                    install_sshd_client(
+                        ssm_target, aws_region, aws_account, auto_install_override
+                    )
                 run_sshd_command(
                     parsed_containers,
                     aws_region,
@@ -431,8 +455,11 @@ def run_sftp_commands(
                     container_name,
                     ecs_manifest,
                 )
-                run_sftp_sync_thread(ecs_manifest, aws_region, aws_account, parsed_containers)
+                run_sftp_sync_thread(
+                    ecs_manifest, aws_region, aws_account, parsed_containers
+                )
             loader.stop()
+
 
 def run_nc_commands(
     parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_nc

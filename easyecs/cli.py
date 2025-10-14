@@ -323,7 +323,12 @@ def action_dev(
         )
     elif ecs_manifest.copy_method == "sftp":
         run_sftp_commands(
-            parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_sftp, auto_install_override
+            parsed_containers,
+            aws_region,
+            aws_account,
+            ecs_manifest,
+            auto_install_sftp,
+            auto_install_override,
         )
     print()
 
