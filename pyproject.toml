@@ -15,6 +15,8 @@ pyyaml = "^6.0.1"
 pydantic = "^2.1.1"
 watchdog = "^3.0.0"
 jinja2 = "^3.1.6"
+paramiko = "^4.0.0"
+scp = "^0.15.0"
 
 [tool.poetry.scripts]
 easyecs = "easyecs.cli:entrypoint"
