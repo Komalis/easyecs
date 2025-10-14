@@ -107,6 +107,9 @@ def sftp(target, aws_region, aws_account, hostname, port, input, output, volumes
                 )
             else:
                 scp.put(input, output)
+            print(
+                f"\n{Color.GRAY}Synchronized {input} to {output} !{Color.END}", end=""
+            )
     except Exception as e:
         if DEBUG_EASYECS:
             print(f"\n{Color.RED}SFTP synchronization failed: {e}{Color.END}", end="")

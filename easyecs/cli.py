@@ -282,6 +282,7 @@ def action_dev(
     ecs_manifest = read_ecs_file(file_name)
     app_name = ecs_manifest.metadata.appname
     user = ecs_manifest.metadata.user
+    auto_install_override = ecs_manifest.auto_install_override
     aws_region = cache_settings["aws_region"]
     aws_account_id = cache_settings["aws_account_id"]
     vpc_id = cache_settings["vpc_id"]
@@ -322,7 +323,7 @@ def action_dev(
         )
     elif ecs_manifest.copy_method == "sftp":
         run_sftp_commands(
-            parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_sftp
+            parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_sftp, auto_install_override
         )
     print()
 
