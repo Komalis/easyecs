@@ -123,7 +123,6 @@ class EcsFileContainerModel(BaseModel):
     ports: Optional[List[str]] = []
     sftp_config: EcsSftpConfig = EcsSftpConfig()
 
-
     @field_validator("volumes")
     def validate_volumes(cls, volumes):
         resolved_volumes = []
@@ -225,6 +224,7 @@ class EcsLoadBalancerModel(BaseModel):
                 " a subnets list to create one"
             )
         return self
+
 
 class EcsFileModel(BaseModel):
     metadata: EcsFileMetadataModel
