@@ -59,7 +59,7 @@ def netcat(hostname, port, content, input, output):
 
 
 def sftp(
-    target, aws_region, aws_account, hostname, port, input, output, volumes_excludes
+    target, aws_region, aws_account, hostname, port, username, password, input, output, volumes_excludes
 ):
     from easyecs.command import generate_ssm_cmd
 
@@ -67,7 +67,7 @@ def sftp(
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(hostname, port=port, username="root", password="root")
+        ssh.connect(hostname, port=port, username=username, password=password)
 
         with SCPClient(ssh.get_transport()) as scp:
             if DEBUG_EASYECS:
@@ -161,7 +161,7 @@ class SynchronizeEventHandler(FileSystemEventHandler):
 
 
 class SynchronizeSFTPEventHandler(FileSystemEventHandler):
-    def __init__(self, target, aws_region, aws_account, volume, volumes_excludes):
+    def __init__(self, target, aws_region, aws_account, volume, volumes_excludes, port, username, password):
         super().__init__()
         self.target = target
         self.aws_region = aws_region
@@ -173,6 +173,9 @@ class SynchronizeSFTPEventHandler(FileSystemEventHandler):
         self.output_dirname = dirname(self.output)
         self.last_event = datetime.datetime.now().timestamp()
         self.volumes_excludes = volumes_excludes
+        self.port = port
+        self.username = username
+        self.password = password
 
     def synchronize(self):
         sftp(
@@ -180,7 +183,9 @@ class SynchronizeSFTPEventHandler(FileSystemEventHandler):
             self.aws_region,
             self.aws_account,
             "127.0.0.1",
-            2312,
+            self.port,
+            self.username,
+            self.password,
             self.input,
             self.output_dirname,
             self.volumes_excludes,
