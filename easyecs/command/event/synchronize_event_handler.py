@@ -59,7 +59,16 @@ def netcat(hostname, port, content, input, output):
 
 
 def sftp(
-    target, aws_region, aws_account, hostname, port, username, password, input, output, volumes_excludes
+    target,
+    aws_region,
+    aws_account,
+    hostname,
+    port,
+    username,
+    password,
+    input,
+    output,
+    volumes_excludes,
 ):
     from easyecs.command import generate_ssm_cmd
 
@@ -161,7 +170,17 @@ class SynchronizeEventHandler(FileSystemEventHandler):
 
 
 class SynchronizeSFTPEventHandler(FileSystemEventHandler):
-    def __init__(self, target, aws_region, aws_account, volume, volumes_excludes, port, username, password):
+    def __init__(
+        self,
+        target,
+        aws_region,
+        aws_account,
+        volume,
+        volumes_excludes,
+        port,
+        username,
+        password,
+    ):
         super().__init__()
         self.target = target
         self.aws_region = aws_region

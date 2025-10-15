@@ -29,7 +29,9 @@ def create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_container
         container_name = container.name
         container_ports = container.port_forward
         if ecs_manifest.copy_method == "sftp":
-            container_ports.append(f"{container.sftp_config.port}:{container.sftp_config.port}")
+            container_ports.append(
+                f"{container.sftp_config.port}:{container.sftp_config.port}"
+            )
         for container_port in container_ports:
             from_port = container_port.split(":")[0]
             to_port = container_port.split(":")[1]
@@ -126,7 +128,14 @@ def run_sftp_sync_thread(ecs_manifest, aws_region, aws_account, parsed_container
             for volume in container.volumes:
                 _from, _ = volume.split(":")
                 event_handler = SynchronizeSFTPEventHandler(
-                    target, aws_region, aws_account, volume, container.volumes_excludes, port, username, password
+                    target,
+                    aws_region,
+                    aws_account,
+                    volume,
+                    container.volumes_excludes,
+                    port,
+                    username,
+                    password,
                 )
                 event_handlers.append(event_handler)
                 observer.schedule(event_handler, _from, recursive=True)
@@ -319,7 +328,9 @@ def install_netcat_command(target, aws_region, aws_account) -> None:
         )
 
 
-def install_sshd_client(target, aws_region, aws_account, auto_install_override, port, user, password) -> None:
+def install_sshd_client(
+    target, aws_region, aws_account, auto_install_override, port, user, password
+) -> None:
     DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
     client = boto3.client("ssm")
     if len(auto_install_override) > 0:
@@ -447,9 +458,15 @@ def run_sftp_commands(
             else:
                 if not has_sshd and auto_install_sftp:
                     install_sshd_client(
-                        ssm_target, aws_region, aws_account, auto_install_override, container.sftp_config.port, container.sftp_config.user, container.sftp_config.password
+                        ssm_target,
+                        aws_region,
+                        aws_account,
+                        auto_install_override,
+                        container.sftp_config.port,
+                        container.sftp_config.user,
+                        container.sftp_config.password,
                     )
-                time.sleep(2) # Wait a bit for sshd to be ready
+                time.sleep(5)  # Wait a bit for sshd to be ready
                 run_sshd_command(
                     parsed_containers,
                     aws_region,
