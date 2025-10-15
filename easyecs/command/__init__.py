@@ -28,6 +28,8 @@ def create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_container
     for container in containers:
         container_name = container.name
         container_ports = container.port_forward
+        if ecs_manifest.copy_method == "sftp":
+            container_ports.append(f"{container.sftp_config.port}:{container.sftp_config.port}")
         for container_port in container_ports:
             from_port = container_port.split(":")[0]
             to_port = container_port.split(":")[1]
@@ -115,13 +117,16 @@ def run_sftp_sync_thread(ecs_manifest, aws_region, aws_account, parsed_container
     containers = ecs_manifest.task_definition.containers
     for container in containers:
         container_name = container.name
+        port = container.sftp_config.port
+        username = container.sftp_config.user
+        password = container.sftp_config.password
         target = parsed_containers.get(container_name)["ssm_target"]
         if len(container.volumes) > 0:
             observer = Observer()
             for volume in container.volumes:
                 _from, _ = volume.split(":")
                 event_handler = SynchronizeSFTPEventHandler(
-                    target, aws_region, aws_account, volume, container.volumes_excludes
+                    target, aws_region, aws_account, volume, container.volumes_excludes, port, username, password
                 )
                 event_handlers.append(event_handler)
                 observer.schedule(event_handler, _from, recursive=True)
@@ -314,7 +319,7 @@ def install_netcat_command(target, aws_region, aws_account) -> None:
         )
 
 
-def install_sshd_client(target, aws_region, aws_account, auto_install_override) -> None:
+def install_sshd_client(target, aws_region, aws_account, auto_install_override, port, user, password) -> None:
     DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
     client = boto3.client("ssm")
     if len(auto_install_override) > 0:
@@ -324,25 +329,21 @@ def install_sshd_client(target, aws_region, aws_account, auto_install_override) 
                 print(f" - {' '.join(cmd)}")
         commands_server = auto_install_override
     else:
-        if DEBUG_EASYECS:
-            print(f"{Color.YELLOW}Using default auto install commands:{Color.END}")
-            print(" - apt update")
-            print(" - apt install -y openssh-server")
-            print(" - echo 'root:root' | chpasswd")
-            print(" - mkdir /run/sshd")
-            print(' - echo "PermitRootLogin yes" >> /etc/ssh/sshd_config')
-            print(' - echo "Port 2312" >> /etc/ssh/sshd_config')
         commands_server = [
             ["apt update"],
             [
                 "/bin/bash -c 'DEBIAN_FRONTEND=noninteractive apt install -y"
                 " openssh-server'"
             ],
-            ["/bin/bash -c 'echo 'root:root' | chpasswd'"],
+            [f"/bin/bash -c 'echo '{user}:{password}' | chpasswd'"],
             ["mkdir /run/sshd"],
             ["/bin/bash -c 'echo \"PermitRootLogin yes\" >> /etc/ssh/sshd_config'"],
-            ["/bin/bash -c 'echo \"Port 2312\" >> /etc/ssh/sshd_config'"],
+            [f"/bin/bash -c 'echo \"Port {port}\" >> /etc/ssh/sshd_config'"],
         ]
+        if DEBUG_EASYECS:
+            print(f"{Color.YELLOW}Using default auto install commands:{Color.END}")
+            for cmd in commands_server:
+                print(f" - {' '.join(cmd)}")
     for command_server in commands_server:
         parameters_nc_server = {"command": command_server}
         ssm_nc_server = client.start_session(
@@ -446,8 +447,9 @@ def run_sftp_commands(
             else:
                 if not has_sshd and auto_install_sftp:
                     install_sshd_client(
-                        ssm_target, aws_region, aws_account, auto_install_override
+                        ssm_target, aws_region, aws_account, auto_install_override, container.sftp_config.port, container.sftp_config.user, container.sftp_config.password
                     )
+                time.sleep(2) # Wait a bit for sshd to be ready
                 run_sshd_command(
                     parsed_containers,
                     aws_region,

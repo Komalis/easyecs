@@ -96,6 +96,12 @@ class EcsFileContainerHealthCheckModel(BaseModel):
     timeout: int
 
 
+class EcsSftpConfig(BaseModel):
+    port: int = 2312
+    user: str = "root"
+    password: str = "root"
+
+
 class EcsFileContainerModel(BaseModel):
     name: str
     image: str
@@ -115,6 +121,8 @@ class EcsFileContainerModel(BaseModel):
     healthcheck: Optional[EcsFileContainerHealthCheckModel] = None
     depends_on: Optional[Dict[str, Dict[str, str]]] = None
     ports: Optional[List[str]] = []
+    sftp_config: EcsSftpConfig = EcsSftpConfig()
+
 
     @field_validator("volumes")
     def validate_volumes(cls, volumes):
@@ -218,7 +226,6 @@ class EcsLoadBalancerModel(BaseModel):
             )
         return self
 
-
 class EcsFileModel(BaseModel):
     metadata: EcsFileMetadataModel
     role: EcsFileRoleModel
@@ -226,5 +233,5 @@ class EcsFileModel(BaseModel):
     task_definition: EcsTaskDefinitionModel
     load_balancer: Optional[EcsLoadBalancerModel] = None
     security_group_id: Optional[str] = None
-    copy_method: str = "nc"
     auto_install_override: list[list[str]] = []
+    copy_method: str = "nc"
