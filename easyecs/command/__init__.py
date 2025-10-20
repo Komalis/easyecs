@@ -6,7 +6,10 @@ import time
 import boto3
 import signal
 from watchdog.observers import Observer
-from easyecs.command.event.synchronize_event_handler import SynchronizeEventHandler
+from easyecs.command.event.synchronize_event_handler import (
+    SynchronizeEventHandler,
+    SynchronizeSFTPEventHandler,
+)
 from easyecs.helpers.color import Color
 from easyecs.helpers.common import generate_random_port, is_port_in_use
 from easyecs.helpers.loader import Loader
@@ -25,6 +28,10 @@ def create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_container
     for container in containers:
         container_name = container.name
         container_ports = container.port_forward
+        if ecs_manifest.copy_method == "sftp":
+            container_ports.append(
+                f"{container.sftp_config.port}:{container.sftp_config.port}"
+            )
         for container_port in container_ports:
             from_port = container_port.split(":")[0]
             to_port = container_port.split(":")[1]
@@ -108,6 +115,35 @@ def run_sync_thread(parsed_containers, ecs_manifest):
             threads.append(observer)
 
 
+def run_sftp_sync_thread(ecs_manifest, aws_region, aws_account, parsed_containers):
+    containers = ecs_manifest.task_definition.containers
+    for container in containers:
+        container_name = container.name
+        port = container.sftp_config.port
+        username = container.sftp_config.user
+        password = container.sftp_config.password
+        target = parsed_containers.get(container_name)["ssm_target"]
+        if len(container.volumes) > 0:
+            observer = Observer()
+            for volume in container.volumes:
+                _from, _ = volume.split(":")
+                event_handler = SynchronizeSFTPEventHandler(
+                    target,
+                    aws_region,
+                    aws_account,
+                    volume,
+                    container.volumes_excludes,
+                    port,
+                    username,
+                    password,
+                )
+                event_handlers.append(event_handler)
+                observer.schedule(event_handler, _from, recursive=True)
+            observer.daemon = True
+            observer.start()
+            threads.append(observer)
+
+
 def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
     containers = ecs_manifest.task_definition.containers
     catchable_sigs = set(signal.Signals) - {signal.SIGKILL, signal.SIGSTOP}
@@ -169,6 +205,35 @@ def generate_ssm_cmd(ssm_nc_server, aws_region, aws_account, target):
         json.dumps(dict(Target=target)),
         f"https://ssm.{aws_region}.amazonaws.com",
     ]
+
+
+def run_sshd_command(
+    parsed_containers, aws_region, aws_account, container_name, ecs_manifest
+):
+    containers = ecs_manifest.task_definition.containers
+    for container in containers:
+        if len(container.volumes) > 0:
+            client = boto3.client("ssm")
+            target = parsed_containers.get(container_name)["ssm_target"]
+            command_server = [f"/usr/sbin/sshd -D"]  # noqa
+            parameters_nc_server = {"command": command_server}
+            ssm_nc_server = client.start_session(
+                Target=target,
+                DocumentName="AWS-StartInteractiveCommand",
+                Parameters=parameters_nc_server,
+            )
+            cmd_nc_server = generate_ssm_cmd(
+                ssm_nc_server, aws_region, aws_account, target
+            )
+            DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
+            stdout = None if DEBUG_EASYECS else subprocess.DEVNULL
+            proc_nc_server = subprocess.Popen(
+                cmd_nc_server,
+                start_new_session=True,
+                stdin=subprocess.PIPE,
+                stdout=stdout,
+            )
+            popen_procs_port_forward.append(proc_nc_server)
 
 
 def run_nc_command(
@@ -263,6 +328,57 @@ def install_netcat_command(target, aws_region, aws_account) -> None:
         )
 
 
+def install_sshd_client(
+    target, aws_region, aws_account, auto_install_override, port, user, password
+) -> None:
+    DEBUG_EASYECS = os.environ.get("DEBUG_EASYECS", None)
+    client = boto3.client("ssm")
+    if len(auto_install_override) > 0:
+        if DEBUG_EASYECS:
+            print(f"{Color.YELLOW}Using auto install override commands:{Color.END}")
+            for cmd in auto_install_override:
+                print(f" - {' '.join(cmd)}")
+        commands_server = auto_install_override
+    else:
+        commands_server = [
+            ["apt update"],
+            [
+                "/bin/bash -c 'DEBIAN_FRONTEND=noninteractive apt install -y"
+                " openssh-server'"
+            ],
+            [f"/bin/bash -c 'echo '{user}:{password}' | chpasswd'"],
+            ["mkdir /run/sshd"],
+            ["/bin/bash -c 'echo \"PermitRootLogin yes\" >> /etc/ssh/sshd_config'"],
+            [f"/bin/bash -c 'echo \"Port {port}\" >> /etc/ssh/sshd_config'"],
+        ]
+        if DEBUG_EASYECS:
+            print(f"{Color.YELLOW}Using default auto install commands:{Color.END}")
+            for cmd in commands_server:
+                print(f" - {' '.join(cmd)}")
+    for command_server in commands_server:
+        parameters_nc_server = {"command": command_server}
+        ssm_nc_server = client.start_session(
+            Target=target,
+            DocumentName="AWS-StartInteractiveCommand",
+            Parameters=parameters_nc_server,
+        )
+        cmd_nc_server = [
+            "session-manager-plugin",
+            json.dumps(ssm_nc_server),
+            aws_region,
+            "StartSession",
+            aws_account,
+            json.dumps(dict(Target=target)),
+            "https://ssm.eu-west-1.amazonaws.com",
+        ]
+        stdout = None if DEBUG_EASYECS else subprocess.DEVNULL
+        subprocess.run(
+            cmd_nc_server,
+            start_new_session=True,
+            stdout=stdout,
+        )
+
+
 def check_nc_command(target, aws_region, aws_account):
     client = boto3.client("ssm")
     command_server = ["which nc"]
@@ -283,6 +399,85 @@ def check_nc_command(target, aws_region, aws_account):
     ]
     output = subprocess.check_output(cmd_nc_server, start_new_session=True)
     return "/nc" in output.decode("utf8").split("\n")[2]
+
+
+def check_sshd_command(target, aws_region, aws_account):
+    client = boto3.client("ssm")
+    command_server = ["which sshd"]
+    parameters_nc_server = {"command": command_server}
+    ssm_nc_server = client.start_session(
+        Target=target,
+        DocumentName="AWS-StartInteractiveCommand",
+        Parameters=parameters_nc_server,
+    )
+    cmd_nc_server = [
+        "session-manager-plugin",
+        json.dumps(ssm_nc_server),
+        aws_region,
+        "StartSession",
+        aws_account,
+        json.dumps(dict(Target=target)),
+        "https://ssm.eu-west-1.amazonaws.com",
+    ]
+    output = subprocess.check_output(cmd_nc_server, start_new_session=True)
+    return "/sshd" in output.decode("utf8").split("\n")[2]
+
+
+def run_sftp_commands(
+    parsed_containers,
+    aws_region,
+    aws_account,
+    ecs_manifest,
+    auto_install_sftp,
+    auto_install_override,
+):
+    containers = ecs_manifest.task_definition.containers
+    for container in containers:
+        if len(container.volumes) > 0:
+            container_name = container.name
+            parsed_container = parsed_containers.get(container_name)
+            ssm_target = parsed_container["ssm_target"]
+            loader = Loader(
+                f"Running sftp command on container {container_name} for"
+                " synchronization:",
+                f"Running sftp command on container {container_name} for"
+                " synchronization: \u2705",
+                f"Running sftp command on container {container_name} for"
+                " synchronization: \u274c",
+                0.05,
+            )
+            loader.start()
+            has_sshd = check_sshd_command(ssm_target, aws_region, aws_account)
+            if not has_sshd and not auto_install_sftp:
+                print(
+                    f"{Color.YELLOW}In order to use volumes on container"
+                    f" {container_name}, you need to install openssh-server command on"
+                    " the container and on the host machine!\nYou can try to install"
+                    f" it on the container using --auto-install-sftp{Color.END}"
+                )
+            else:
+                if not has_sshd and auto_install_sftp:
+                    install_sshd_client(
+                        ssm_target,
+                        aws_region,
+                        aws_account,
+                        auto_install_override,
+                        container.sftp_config.port,
+                        container.sftp_config.user,
+                        container.sftp_config.password,
+                    )
+                time.sleep(5)  # Wait a bit for sshd to be ready
+                run_sshd_command(
+                    parsed_containers,
+                    aws_region,
+                    aws_account,
+                    container_name,
+                    ecs_manifest,
+                )
+                run_sftp_sync_thread(
+                    ecs_manifest, aws_region, aws_account, parsed_containers
+                )
+            loader.stop()
 
 
 def run_nc_commands(
@@ -316,6 +511,7 @@ def run_nc_commands(
             else:
                 if not has_nc and auto_install_nc:
                     install_netcat_command(ssm_target, aws_region, aws_account)
+
                 run_nc_command(
                     parsed_containers,
                     aws_region,
