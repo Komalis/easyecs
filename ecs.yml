@@ -19,6 +19,7 @@ execution_role:
       actions: ["s3:*"]
       effect: "Allow"
 task_definition:
+  ephemeral_storage: 100  # Optional: 21-200 GiB (default is 21 GiB)
   resources:
     limits:
       cpu: 2
