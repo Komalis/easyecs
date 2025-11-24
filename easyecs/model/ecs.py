@@ -143,6 +143,15 @@ class EcsFileContainerModel(BaseModel):
 class EcsTaskDefinitionModel(BaseModel):
     resources: EcsFileResourcesModel
     containers: List[EcsFileContainerModel]
+    ephemeral_storage: Optional[int] = None
+
+    @field_validator("ephemeral_storage")
+    def validate_ephemeral_storage(cls, value):
+        if value is not None and (value < 21 or value > 200):
+            raise ValueError(
+                f"Ephemeral storage must be between 21 and 200 GiB, got {value}"
+            )
+        return value
 
     @field_validator("containers")
     def validate_single_tty(cls, containers):
@@ -208,6 +217,15 @@ class EcsLoadBalancerModel(BaseModel):
     arn: Optional[str] = None
     security_group_id: Optional[str] = None
     security_group_rules: Optional[SecurityGroupRules] = None
+    idle_timeout: Optional[int] = None
+
+    @field_validator("idle_timeout")
+    def validate_idle_timeout(cls, value):
+        if value is not None and (value < 1 or value > 4000):
+            raise ValueError(
+                f"Idle timeout must be between 1 and 4000 seconds, got {value}"
+            )
+        return value
 
     @model_validator(mode="after")
     def validate_subnets(self):

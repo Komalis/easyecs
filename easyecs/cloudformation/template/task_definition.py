@@ -34,6 +34,7 @@ def create_task_definition(
 def create_fargate_task_definition(
     stack, service_name, task_role, execution_role, ecs_data
 ):
+    from aws_cdk import Size
     from aws_cdk.aws_ecs import (
         FargateTaskDefinition,
     )
@@ -43,14 +44,24 @@ def create_fargate_task_definition(
     resource_limits = ecs_data.task_definition.resources.limits
     cpu_limit = resource_limits.cpu * 1024
     memory_limit = resource_limits.memory
+    ephemeral_storage = ecs_data.task_definition.ephemeral_storage
+
+    task_definition_kwargs = {
+        "task_role": task_role,
+        "execution_role": execution_role,
+        "cpu": cpu_limit,
+        "memory_limit_mib": memory_limit,
+    }
+
+    if isinstance(ephemeral_storage, int):
+        task_definition_kwargs["ephemeral_storage_gib"] = Size.gibibytes(
+            ephemeral_storage
+        )
 
     return FargateTaskDefinition(
         stack,
         task_definition_name,
-        task_role=task_role,
-        execution_role=execution_role,
-        cpu=cpu_limit,
-        memory_limit_mib=memory_limit,
+        **task_definition_kwargs,
     )
 
 

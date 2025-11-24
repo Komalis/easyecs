@@ -61,11 +61,19 @@ def create_template(
         stack, service_name, ecs_cluster, task_definition, subnet_selection, sg
     )
     if ecs_manifest.load_balancer and listener is not None:
-        listener.add_targets(
-            "NlbTarget",
-            port=ecs_manifest.load_balancer.target_group_port,
-            targets=[service],
-        )
+        from aws_cdk import Duration
+
+        add_targets_kwargs = {
+            "port": ecs_manifest.load_balancer.target_group_port,
+            "targets": [service],
+        }
+
+        if isinstance(ecs_manifest.load_balancer.idle_timeout, int):
+            add_targets_kwargs["deregistration_delay"] = Duration.seconds(
+                ecs_manifest.load_balancer.idle_timeout
+            )
+
+        listener.add_targets("NlbTarget", **add_targets_kwargs)
 
     if ecs_manifest.metadata.auto_destruction is not None:
         assert isinstance(
