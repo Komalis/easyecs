@@ -8,6 +8,7 @@ from easyecs.helpers.settings import read_ecs_file
 from easyecs.cloudformation.template import create_template
 import json
 
+
 def test_template_generation():
     """Test template generation with new features."""
     try:
@@ -34,14 +35,14 @@ def test_template_generation():
             subnet_ids,
             azs,
             ecs_data,
-            run=False
+            run=False,
         )
 
         print("✅ Template generated successfully!")
 
         # Read and analyze the generated template
         template_path = ".cloudformation/test-service.template.json"
-        with open(template_path, 'r') as f:
+        with open(template_path, "r") as f:
             template = json.load(f)
 
         print("\n📋 Template Analysis:")
@@ -54,7 +55,10 @@ def test_template_generation():
                 # Check ephemeral storage
                 ephemeral_storage = props.get("EphemeralStorage")
                 if ephemeral_storage:
-                    print(f"  ✅ Ephemeral Storage: {ephemeral_storage.get('SizeInGiB')} GiB")
+                    print(
+                        "  ✅ Ephemeral Storage:"
+                        f" {ephemeral_storage.get('SizeInGiB')} GiB"
+                    )
                 else:
                     print("  ℹ️  Ephemeral Storage: Using default (21 GiB)")
 
@@ -65,7 +69,10 @@ def test_template_generation():
 
                 for attr in deregistration_delay:
                     if attr.get("Key") == "deregistration_delay.timeout_seconds":
-                        print(f"  ✅ Load Balancer Idle Timeout: {attr.get('Value')} seconds")
+                        print(
+                            "  ✅ Load Balancer Idle Timeout:"
+                            f" {attr.get('Value')} seconds"
+                        )
 
         print("\n✅ All checks passed!")
         return True
@@ -73,8 +80,10 @@ def test_template_generation():
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     test_template_generation()

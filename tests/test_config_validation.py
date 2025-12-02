@@ -6,6 +6,7 @@ without deploying to AWS.
 
 from easyecs.helpers.settings import read_ecs_file
 
+
 def test_config():
     """Test that the config file is valid."""
     try:
@@ -17,14 +18,18 @@ def test_config():
 
         # Test ephemeral storage
         if ecs_data.task_definition.ephemeral_storage:
-            print(f"  Ephemeral storage: {ecs_data.task_definition.ephemeral_storage} GiB")
+            print(
+                f"  Ephemeral storage: {ecs_data.task_definition.ephemeral_storage} GiB"
+            )
         else:
             print("  Ephemeral storage: 21 GiB (default)")
 
         # Test load balancer idle timeout
         if ecs_data.load_balancer:
             if ecs_data.load_balancer.idle_timeout:
-                print(f"  LB idle timeout: {ecs_data.load_balancer.idle_timeout} seconds")
+                print(
+                    f"  LB idle timeout: {ecs_data.load_balancer.idle_timeout} seconds"
+                )
             else:
                 print("  LB idle timeout: 300 seconds (default)")
 
@@ -37,6 +42,7 @@ def test_config():
     except Exception as e:
         print(f"❌ Error: {e}")
         return False
+
 
 if __name__ == "__main__":
     test_config()
