@@ -34,7 +34,6 @@ def create_task_definition(
 def create_fargate_task_definition(
     stack, service_name, task_role, execution_role, ecs_data
 ):
-    from aws_cdk import Size
     from aws_cdk.aws_ecs import (
         FargateTaskDefinition,
     )
@@ -54,9 +53,7 @@ def create_fargate_task_definition(
     }
 
     if isinstance(ephemeral_storage, int):
-        task_definition_kwargs["ephemeral_storage_gib"] = Size.gibibytes(
-            ephemeral_storage
-        )
+        task_definition_kwargs["ephemeral_storage_gib"] = ephemeral_storage
 
     return FargateTaskDefinition(
         stack,
