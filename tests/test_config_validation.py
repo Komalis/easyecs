@@ -12,23 +12,23 @@ def test_config():
         ecs_data = read_ecs_file("ecs.yml")
 
         print("✅ Config file is valid!")
-        print(f"\n📋 Configuration Summary:")
+        print("\n📋 Configuration Summary:")
         print(f"  App name: {ecs_data.metadata.appname}")
 
         # Test ephemeral storage
         if ecs_data.task_definition.ephemeral_storage:
             print(f"  Ephemeral storage: {ecs_data.task_definition.ephemeral_storage} GiB")
         else:
-            print(f"  Ephemeral storage: 21 GiB (default)")
+            print("  Ephemeral storage: 21 GiB (default)")
 
         # Test load balancer idle timeout
         if ecs_data.load_balancer:
             if ecs_data.load_balancer.idle_timeout:
                 print(f"  LB idle timeout: {ecs_data.load_balancer.idle_timeout} seconds")
             else:
-                print(f"  LB idle timeout: 300 seconds (default)")
+                print("  LB idle timeout: 300 seconds (default)")
 
-        print(f"\n✅ All validations passed!")
+        print("\n✅ All validations passed!")
         return True
 
     except ValueError as e:

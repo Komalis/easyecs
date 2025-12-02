@@ -56,7 +56,7 @@ def test_template_generation():
                 if ephemeral_storage:
                     print(f"  ✅ Ephemeral Storage: {ephemeral_storage.get('SizeInGiB')} GiB")
                 else:
-                    print(f"  ℹ️  Ephemeral Storage: Using default (21 GiB)")
+                    print("  ℹ️  Ephemeral Storage: Using default (21 GiB)")
 
             # Check target group for idle timeout
             if resource.get("Type") == "AWS::ElasticLoadBalancingV2::TargetGroup":

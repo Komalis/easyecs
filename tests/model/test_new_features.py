@@ -3,14 +3,11 @@
 import pytest
 from pydantic import ValidationError
 from easyecs.model.ecs import (
-    EcsFileMetadataModel,
-    EcsFileRoleModel,
     EcsTaskDefinitionModel,
     EcsFileResourcesModel,
     EcsFileLimitsModel,
     EcsFileContainerModel,
     EcsLoadBalancerModel,
-    EcsFileModel,
 )
 
 
