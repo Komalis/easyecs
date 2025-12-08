@@ -348,6 +348,7 @@ def test_run_nc_when_dev_with_volumes(action, mocker):  # noqa: E501
     container = MagicMock()
     container.volumes = ["./ecs.yml:./ecs.yml"]
     ecs_manifest.task_definition.containers = [container]
+    ecs_manifest.copy_method = "nc"
     mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
     mocker.patch("easyecs.cli.step_bring_up_stack")
     parsed_containers = MagicMock()
