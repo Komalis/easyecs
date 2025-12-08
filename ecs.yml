@@ -43,3 +43,4 @@ task_definition:
         - "8000:8000"
       env: []
       secrets: []
+copy_method: "nc"

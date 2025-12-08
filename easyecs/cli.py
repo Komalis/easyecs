@@ -22,6 +22,7 @@ from easyecs.command import (
     execute_command,
     popen_procs_port_forward,
     popen_procs_exec_command,
+    run_sftp_commands,
     threads,
     event_handlers,
 )
@@ -90,6 +91,13 @@ class Options:
         default=False,
         show_default=True,
         help="If used, it will automatically install nc on the container",
+    )
+    auto_install_sftp: Callable = click.option(
+        "--auto-install-sftp",
+        is_flag=True,
+        default=False,
+        show_default=True,
+        help="If used, it will automatically install sftp on the container",
     )
     file_name: Callable = click.option(
         "--file-name",
@@ -267,12 +275,14 @@ def action_dev(
     force_redeployment: bool = False,
     show_docker_logs: bool = False,
     auto_install_nc: bool = False,
+    auto_install_sftp: bool = False,
 ):
     aws_account = fetch_aws_account()
     cache_settings = load_settings(aws_account)
     ecs_manifest = read_ecs_file(file_name)
     app_name = ecs_manifest.metadata.appname
     user = ecs_manifest.metadata.user
+    auto_install_override = ecs_manifest.auto_install_override
     aws_region = cache_settings["aws_region"]
     aws_account_id = cache_settings["aws_account_id"]
     vpc_id = cache_settings["vpc_id"]
@@ -307,9 +317,19 @@ def action_dev(
     parsed_containers = fetch_containers(user, app_name)
     print()
     create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers)
-    run_nc_commands(
-        parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_nc
-    )
+    if ecs_manifest.copy_method == "nc":
+        run_nc_commands(
+            parsed_containers, aws_region, aws_account, ecs_manifest, auto_install_nc
+        )
+    elif ecs_manifest.copy_method == "sftp":
+        run_sftp_commands(
+            parsed_containers,
+            aws_region,
+            aws_account,
+            ecs_manifest,
+            auto_install_sftp,
+            auto_install_override,
+        )
     print()
 
     for event_handler in event_handlers:
@@ -365,12 +385,14 @@ def click_run(
 @options.force_redeployment
 @options.show_docker_logs
 @options.auto_install_nc
+@options.auto_install_sftp
 @options.file_name
 def click_dev(
     no_docker_build: bool,
     force_redeployment: bool,
     show_docker_logs: bool,
     auto_install_nc: bool,
+    auto_install_sftp: bool,
     file_name: str,
 ):
     action_dev(
@@ -379,6 +401,7 @@ def click_dev(
         force_redeployment,
         show_docker_logs,
         auto_install_nc,
+        auto_install_sftp,
     )
 
 
