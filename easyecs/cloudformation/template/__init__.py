@@ -79,7 +79,9 @@ def create_template(
         assert isinstance(
             ecs_manifest.metadata.auto_destruction, int
         ), "auto_destruction must be an Integer (minutes)"
-        harakiri_lambda = create_autodestroy(stack, ecs_manifest.metadata.auto_destruction)
+        harakiri_lambda = create_autodestroy(
+            stack, ecs_manifest.metadata.auto_destruction
+        )
         # Destroy ecs before lambda
         ecs_cluster.node.add_dependency(harakiri_lambda)
 
@@ -233,21 +235,25 @@ def create_task_role(stack, service_name, ecs_manifest):
             "EcsLoggingPolicyTask",
             statements=[
                 PolicyStatement(
-                    actions=["logs:CreateLogStream",
-                             "logs:DescribeLogStreams",
-                             "logs:PutLogEvents",
-                             "logs:DescribeLogGroups"],
-                    resources=["*"]
+                    actions=[
+                        "logs:CreateLogStream",
+                        "logs:DescribeLogStreams",
+                        "logs:PutLogEvents",
+                        "logs:DescribeLogGroups",
+                    ],
+                    resources=["*"],
                 ),
                 PolicyStatement(
-                    actions=["ssmmessages:CreateControlChannel",
-                             "ssmmessages:CreateDataChannel",
-                             "ssmmessages:OpenControlChannel",
-                             "ssmmessages:OpenDataChannel"],
-                    resources=["*"]
-                )
+                    actions=[
+                        "ssmmessages:CreateControlChannel",
+                        "ssmmessages:CreateDataChannel",
+                        "ssmmessages:OpenControlChannel",
+                        "ssmmessages:OpenDataChannel",
+                    ],
+                    resources=["*"],
+                ),
             ],
-            roles=[role]
+            roles=[role],
         )
         return role
     else:
@@ -306,10 +312,10 @@ def create_execution_task_role(stack, service_name, ecs_manifest):
             statements=[
                 PolicyStatement(
                     actions=["logs:CreateLogStream", "logs:PutLogEvents"],
-                    resources=["arn:aws:logs:*:*:log-group:*:*"]
+                    resources=["arn:aws:logs:*:*:log-group:*:*"],
                 )
             ],
-            roles=[role]
+            roles=[role],
         )
         return role
     else:
@@ -419,12 +425,10 @@ def create_autodestroy(stack, deployment_timeout: int):
             "cloudformation:DescribeStacks",
             "events:RemoveTargets",
             "events:DeleteRule",
-
             # --- 1. Lambda Self-Destruct ---
             "lambda:DeleteFunction",
             "lambda:GetFunction",
             "lambda:RemovePermission",
-
             # --- 2. IAM ---
             "iam:GetPolicy",
             "iam:DeletePolicy",
@@ -433,7 +437,6 @@ def create_autodestroy(stack, deployment_timeout: int):
             "iam:DeleteRolePolicy",
             "iam:ListPolicyVersions",
             "iam:DeletePolicyVersion",
-
             # --- 3. ECS Permissions ---
             "ecs:DeleteCluster",
             "ecs:DeleteService",
@@ -441,18 +444,15 @@ def create_autodestroy(stack, deployment_timeout: int):
             "ecs:DescribeServices",
             "ecs:DescribeClusters",
             "ecs:DeregisterTaskDefinition",
-
             # --- 4. Volume Permissions ---
-
             "ec2:DeleteVolume",
             "ec2:DetachVolume",
             "ec2:DescribeVolumes",
-
             # --- 5. Network & Security Groups ---
             "ec2:DeleteSecurityGroup",
             "ec2:DescribeSecurityGroups",
             "ec2:DeleteNetworkInterface",
-            "ec2:DescribeNetworkInterfaces"
+            "ec2:DescribeNetworkInterfaces",
         ],
         resources=["*"],
     )
