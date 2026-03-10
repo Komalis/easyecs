@@ -1,4 +1,5 @@
 import boto3
+from botocore.exceptions import ClientError
 from easyecs.helpers.common import (
     convert_containers_to_dict,
     convert_tags_to_dict,
@@ -97,12 +98,31 @@ def fetch_is_stack_created(stack_name):
 def fetch_containers(user, app_name):
     cluster_name = f"{user}-{app_name}-cluster"
     client = boto3.client("ecs")
-    res = client.list_tasks(cluster=cluster_name)
+    try:
+        res = client.list_tasks(cluster=cluster_name)
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code")
+        if error_code == "ClusterNotFoundException":
+            return {}
+        raise
     task_arns = res["taskArns"]
-    res_task = client.describe_tasks(cluster=cluster_name, tasks=task_arns)
+    if len(task_arns) == 0:
+        return {}
+    try:
+        res_task = client.describe_tasks(cluster=cluster_name, tasks=task_arns)
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code")
+        if error_code == "ClusterNotFoundException":
+            return {}
+        raise
+    if len(res_task["tasks"]) == 0:
+        return {}
     containers = res_task["tasks"][0]["containers"]
     # This inject the target for easier use with SSM.
     for container in containers:
+        runtime_id = container.get("runtimeId")
+        if not runtime_id:
+            continue
         runtime_id = container["runtimeId"]
         task_id = runtime_id.split("-")[0]
         target = f"ecs:{cluster_name}_{task_id}_{runtime_id}"
@@ -119,7 +139,10 @@ def fetch_session_region():
 
 def fetch_stack_url(stack_name):
     client = boto3.client("cloudformation")
-    res = client.describe_stacks(StackName=stack_name)
+    try:
+        res = client.describe_stacks(StackName=stack_name)
+    except ClientError:
+        return None
     stack_arn = res["Stacks"][0]["StackId"]
     region_name = fetch_session_region()
     url = f"https://{region_name}.console.aws.amazon.com/cloudformation/home?region={region_name}#/stacks/stackinfo?stackId={stack_arn}"  # noqa: E501

@@ -16,7 +16,11 @@ from easyecs.command import generate_ssm_cmd
 @pytest.fixture
 def setup_mocker(mocker):
     mocker.patch("easyecs.cli.load_settings")
-    mocker.patch("easyecs.cli.read_ecs_file")
+    ecs_manifest = MagicMock()
+    ecs_manifest.metadata.appname = "app"
+    ecs_manifest.metadata.user = "user"
+    ecs_manifest.task_definition.containers = []
+    mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
     mocker.patch("easyecs.cli.step_import_aws_cdk")
     mocker.patch("easyecs.cli.step_docker_build_and_push")
     mocker.patch("easyecs.cli.fetch_containers")
@@ -32,6 +36,7 @@ def setup_mocker(mocker):
     mocker.patch("easyecs.cli.execute_command")
     mocker.patch("easyecs.cli.step_idle_keyboard")
     mocker.patch("easyecs.cli.step_clean_exit")
+    mocker.patch("easyecs.cli.step_fetch_accessible_containers", return_value=None)
     mocker.patch("easyecs.cli.save_hash")
     mocker.patch("easyecs.cli.has_ecs_file_changed", return_value=True)
 
@@ -188,15 +193,12 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
     )
 
     mock = MagicMock()
-    mocker.patch(
-        "easyecs.cloudformation.stack.waiter.get_client_cloudformation",
-        return_value=mock,
-    )
+    mocker.patch("easyecs.cli.step_wait_for_stack_operation", mock)
 
     params = get_params()
     run_action(action, params)
 
-    mock.get_waiter.assert_called_once_with("stack_rollback_complete")
+    mock.assert_called_once_with("user-app", True)
 
 
 @pytest.mark.parametrize("action", actions)
@@ -217,15 +219,12 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
     )
 
     mock = MagicMock()
-    mocker.patch(
-        "easyecs.cloudformation.stack.waiter.get_client_cloudformation",
-        return_value=mock,
-    )
+    mocker.patch("easyecs.cli.step_wait_for_stack_operation", mock)
 
     params = get_params()
     run_action(action, params)
 
-    mock.get_waiter.assert_called_once_with("stack_rollback_complete")
+    mock.assert_called_once_with("user-app", True)
 
 
 @pytest.mark.parametrize("action", actions)
@@ -246,15 +245,12 @@ def test_cloudformation_waiter_stack_rollback_complete_is_called_stack_created_n
     )
 
     mock = MagicMock()
-    mocker.patch(
-        "easyecs.cloudformation.stack.waiter.get_client_cloudformation",
-        return_value=mock,
-    )
+    mocker.patch("easyecs.cli.step_wait_for_stack_operation", mock)
 
     params = get_params()
     run_action(action, params)
 
-    mock.get_waiter.assert_called_once_with("stack_create_complete")
+    mock.assert_called_once_with("user-app", True)
 
 
 @pytest.mark.parametrize("action", actions)
@@ -267,15 +263,12 @@ def test_cloudformation_waiter_stack_update_complete_is_called_stack_created(  #
     mocker.patch("easyecs.cloudformation.stack.update.get_client_cloudformation")
 
     mock = MagicMock()
-    mocker.patch(
-        "easyecs.cloudformation.stack.waiter.get_client_cloudformation",
-        return_value=mock,
-    )
+    mocker.patch("easyecs.cli.step_wait_for_stack_operation", mock)
 
     params = get_params()
     run_action(action, params)
 
-    mock.get_waiter.assert_called_once_with("stack_update_complete")
+    mock.assert_called_once_with("user-app", True)
 
 
 @pytest.mark.parametrize("action", actions)
@@ -288,13 +281,14 @@ def test_cloudformation_waiter_stack_create_complete_is_called_stack_not_created
     mock = MagicMock()
     mocker.patch(
         "easyecs.cloudformation.stack.create.get_client_cloudformation",
-        return_value=mock,
+        return_value=MagicMock(),
     )
+    mocker.patch("easyecs.cli.step_wait_for_stack_operation", mock)
 
     params = get_params()
     run_action(action, params)
 
-    mock.get_waiter.assert_called_once_with("stack_create_complete")
+    mock.assert_called_once_with("user-app", False)
 
 
 @pytest.mark.parametrize("action", actions)
@@ -306,7 +300,9 @@ def test_cloudformation_waiter_stack_no_create_or_update_if_hash_same(  # noqa: 
     mocks = [
         mocker.patch("easyecs.cli.step_import_aws_cdk"),
         mocker.patch("easyecs.cli.step_docker_build_and_push"),
-        mocker.patch("easyecs.cli.step_create_or_update_stack"),
+        mocker.patch(
+            "easyecs.cli.step_create_or_update_stack", return_value=(True, True)
+        ),
         mocker.patch("easyecs.cli.save_hash"),
     ]
 
@@ -326,7 +322,9 @@ def test_cloudformation_waiter_stack_create_or_update_if_hash_same_force_redeplo
     mocks = [
         mocker.patch("easyecs.cli.step_import_aws_cdk"),
         mocker.patch("easyecs.cli.step_docker_build_and_push"),
-        mocker.patch("easyecs.cli.step_create_or_update_stack"),
+        mocker.patch(
+            "easyecs.cli.step_create_or_update_stack", return_value=(True, True)
+        ),
         mocker.patch("easyecs.cli.save_hash"),
     ]
 
@@ -346,13 +344,16 @@ def test_run_nc_when_dev_with_volumes(action, mocker):  # noqa: E501
     mocker.patch("easyecs.cli.load_settings", return_value=cache_settings)
     ecs_manifest = MagicMock()
     container = MagicMock()
+    container.tty = True
     container.volumes = ["./ecs.yml:./ecs.yml"]
     ecs_manifest.task_definition.containers = [container]
     ecs_manifest.copy_method = "nc"
     mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
-    mocker.patch("easyecs.cli.step_bring_up_stack")
+    mocker.patch("easyecs.cli.step_bring_up_stack", return_value=(True, False))
     parsed_containers = MagicMock()
-    mocker.patch("easyecs.cli.fetch_containers", return_value=parsed_containers)
+    mocker.patch(
+        "easyecs.cli.step_fetch_accessible_containers", return_value=parsed_containers
+    )
     mocker.patch("easyecs.cli.create_port_forwards")
     mocker.patch("easyecs.command.run_sync_thread")
     mocker.patch("easyecs.cli.execute_command")
@@ -376,6 +377,88 @@ def test_run_nc_when_dev_with_volumes(action, mocker):  # noqa: E501
         stdin=subprocess.PIPE,
         stdout=subprocess.DEVNULL,
     )
+
+
+def test_dev_without_tty_still_fetches_containers_for_sync_and_waits_for_stack(mocker):
+    mocker.patch("easyecs.cli.fetch_aws_account", return_value="aws_account")
+    cache_settings = MagicMock()
+    cache_settings.aws_region = "eu-west-1"
+    cache_settings.aws_account_id = "123"
+    cache_settings.vpc_id = "vpc-1"
+    cache_settings.subnet_ids = ["subnet-1"]
+    cache_settings.azs = ["eu-west-1a"]
+    mocker.patch("easyecs.cli.load_settings", return_value=cache_settings)
+    ecs_manifest = MagicMock()
+    ecs_manifest.metadata.appname = "app"
+    ecs_manifest.metadata.user = "user"
+    ecs_manifest.load_balancer = None
+    ecs_manifest.copy_method = None
+    ecs_manifest.auto_install_override = False
+    container = MagicMock()
+    container.name = "app"
+    container.tty = False
+    ecs_manifest.task_definition.containers = [container]
+    mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
+    mocker.patch("easyecs.cli.step_bring_up_stack", return_value=(False, True))
+    wait_mock = mocker.patch("easyecs.cli.step_wait_for_stack_operation")
+    parsed_containers = {"app": {"name": "app"}}
+    fetch_accessible_mock = mocker.patch(
+        "easyecs.cli.step_fetch_accessible_containers", return_value=parsed_containers
+    )
+    execute_mock = mocker.patch("easyecs.cli.execute_command")
+    fetch_containers_mock = mocker.patch("easyecs.cli.fetch_containers")
+    mocker.patch("easyecs.cli.create_port_forwards")
+    mocker.patch("easyecs.cli.step_idle_keyboard")
+    mocker.patch("easyecs.cli.step_clean_exit")
+
+    run_action(action_dev, get_params())
+
+    fetch_accessible_mock.assert_called_once_with("user", "app", ["app"])
+    wait_mock.assert_called_once_with("user-app", False)
+    fetch_containers_mock.assert_not_called()
+    execute_mock.assert_not_called()
+
+
+def test_dev_without_tty_waits_before_fetching_when_no_container_is_accessible(mocker):
+    mocker.patch("easyecs.cli.fetch_aws_account", return_value="aws_account")
+    cache_settings = MagicMock()
+    cache_settings.aws_region = "eu-west-1"
+    cache_settings.aws_account_id = "123"
+    cache_settings.vpc_id = "vpc-1"
+    cache_settings.subnet_ids = ["subnet-1"]
+    cache_settings.azs = ["eu-west-1a"]
+    mocker.patch("easyecs.cli.load_settings", return_value=cache_settings)
+    ecs_manifest = MagicMock()
+    ecs_manifest.metadata.appname = "app"
+    ecs_manifest.metadata.user = "user"
+    ecs_manifest.load_balancer = None
+    ecs_manifest.copy_method = None
+    ecs_manifest.auto_install_override = False
+    container = MagicMock()
+    container.name = "app"
+    container.tty = False
+    ecs_manifest.task_definition.containers = [container]
+    mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
+    mocker.patch("easyecs.cli.step_bring_up_stack", return_value=(False, True))
+    wait_mock = mocker.patch("easyecs.cli.step_wait_for_stack_operation")
+    fetch_accessible_mock = mocker.patch(
+        "easyecs.cli.step_fetch_accessible_containers", return_value=None
+    )
+    parsed_containers = {"app": {"name": "app"}}
+    fetch_containers_mock = mocker.patch(
+        "easyecs.cli.fetch_containers", return_value=parsed_containers
+    )
+    mocker.patch("easyecs.cli.create_port_forwards")
+    execute_mock = mocker.patch("easyecs.cli.execute_command")
+    mocker.patch("easyecs.cli.step_idle_keyboard")
+    mocker.patch("easyecs.cli.step_clean_exit")
+
+    run_action(action_dev, get_params())
+
+    fetch_accessible_mock.assert_called_once_with("user", "app", ["app"])
+    wait_mock.assert_called_once_with("user-app", False)
+    fetch_containers_mock.assert_called_once_with("user", "app")
+    execute_mock.assert_not_called()
 
 
 def test_generate_cmd_nc_server(mocker):  # noqa: E501
@@ -407,9 +490,11 @@ def test_no_run_nc_when_dev_without_synchronize(action, mocker):  # noqa: E501
     container.synchronize = False
     ecs_manifest.task_definition.containers = [container]
     mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
-    mocker.patch("easyecs.cli.step_bring_up_stack")
+    mocker.patch("easyecs.cli.step_bring_up_stack", return_value=(True, False))
     parsed_containers = MagicMock()
-    mocker.patch("easyecs.cli.fetch_containers", return_value=parsed_containers)
+    mocker.patch(
+        "easyecs.cli.step_fetch_accessible_containers", return_value=parsed_containers
+    )
     mocker.patch("easyecs.cli.create_port_forwards")
     mocker.patch("easyecs.command.run_sync_thread")
     mocker.patch("easyecs.cli.execute_command")
@@ -439,9 +524,11 @@ def test_no_run_nc_when_dev_with_synchronize_without_nc(action, mocker):  # noqa
     container.synchronize = False
     ecs_manifest.task_definition.containers = [container]
     mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
-    mocker.patch("easyecs.cli.step_bring_up_stack")
+    mocker.patch("easyecs.cli.step_bring_up_stack", return_value=(True, False))
     parsed_containers = MagicMock()
-    mocker.patch("easyecs.cli.fetch_containers", return_value=parsed_containers)
+    mocker.patch(
+        "easyecs.cli.step_fetch_accessible_containers", return_value=parsed_containers
+    )
     mocker.patch("easyecs.cli.create_port_forwards")
     mocker.patch("easyecs.command.run_sync_thread")
     mocker.patch("easyecs.cli.execute_command")
@@ -476,12 +563,15 @@ def test_run_port_forward(action, ports, mocker):  # noqa: E501
     mocker.patch("easyecs.cli.load_settings", return_value=cache_settings)
     ecs_manifest = MagicMock()
     container = MagicMock()
+    container.tty = action == action_dev
     container.port_forward = ports
     ecs_manifest.task_definition.containers = [container]
     mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
-    mocker.patch("easyecs.cli.step_bring_up_stack")
+    mocker.patch("easyecs.cli.step_bring_up_stack", return_value=(True, False))
     parsed_containers = MagicMock()
-    mocker.patch("easyecs.cli.fetch_containers", return_value=parsed_containers)
+    mocker.patch(
+        "easyecs.cli.step_fetch_accessible_containers", return_value=parsed_containers
+    )
     mocker.patch("easyecs.command.run_sync_thread")
     mocker.patch("easyecs.cli.execute_command")
     mocker.patch("easyecs.cli.step_idle_keyboard")
@@ -527,9 +617,11 @@ def test_no_run_port_forward_port_in_use(action, ports, mocker):  # noqa: E501
     container.port_forward = ports
     ecs_manifest.task_definition.containers = [container]
     mocker.patch("easyecs.cli.read_ecs_file", return_value=ecs_manifest)
-    mocker.patch("easyecs.cli.step_bring_up_stack")
+    mocker.patch("easyecs.cli.step_bring_up_stack", return_value=(True, False))
     parsed_containers = MagicMock()
-    mocker.patch("easyecs.cli.fetch_containers", return_value=parsed_containers)
+    mocker.patch(
+        "easyecs.cli.step_fetch_accessible_containers", return_value=parsed_containers
+    )
     mocker.patch("easyecs.command.run_sync_thread")
     mocker.patch("easyecs.cli.execute_command")
     mocker.patch("easyecs.cli.step_idle_keyboard")

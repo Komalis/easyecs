@@ -44,9 +44,10 @@ def handle_stack_creation_failure(e: WaiterError, stack_name: str):
     exit(-1)
 
 
-def create_stack(stack_name: str):
+def create_stack(stack_name: str, wait: bool = True) -> bool:
     """
     Creates a CloudFormation stack with the given name.
+    Returns True when a stack operation was submitted.
     """
     loader = Loader(
         "Creating CloudFormation stack:",
@@ -60,8 +61,10 @@ def create_stack(stack_name: str):
         cloudformation_template = load_template(stack_name)
         create_cloudformation_stack(stack_name, cloudformation_template)
         loader.set_metadata(f"Cloudformation URL: {fetch_stack_url(stack_name)}")
-        wait_for_stack_creation(stack_name)
+        if wait:
+            wait_for_stack_creation(stack_name)
     except WaiterError as e:
         handle_stack_creation_failure(e, stack_name)
 
     loader.stop()
+    return True

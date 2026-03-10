@@ -8,6 +8,10 @@ from typing import Callable
 import click
 from easyecs.cloudformation.stack.create import create_stack
 from easyecs.cloudformation.stack.delete import delete_stack
+from easyecs.cloudformation.stack.waiter import (
+    wait_for_stack_create,
+    wait_for_stack_update,
+)
 from easyecs.cloudformation.stack.update import update_stack
 from easyecs.cloudformation.template import create_template
 from easyecs.cloudformation.fetch import (
@@ -152,11 +156,49 @@ def step_docker_build_and_push(
     loader.stop()
 
 
-def step_create_or_update_stack(stack_name, force_redeployment):
-    if not fetch_is_stack_created(stack_name):
-        create_stack(stack_name)
+def step_create_or_update_stack(
+    stack_name, force_redeployment, wait_for_completion=True
+):
+    is_stack_created = fetch_is_stack_created(stack_name)
+    if not is_stack_created:
+        stack_operation_submitted = create_stack(stack_name, wait=wait_for_completion)
     else:
-        update_stack(stack_name, force_redeployment)
+        stack_operation_submitted = update_stack(
+            stack_name, force_redeployment, wait=wait_for_completion
+        )
+    return is_stack_created, stack_operation_submitted
+
+
+def step_wait_for_stack_operation(stack_name, is_stack_created):
+    if is_stack_created:
+        wait_for_stack_update(stack_name)
+    else:
+        wait_for_stack_create(stack_name)
+
+
+def step_fetch_accessible_containers(
+    user,
+    app_name,
+    expected_container_names,
+    timeout=120,
+    delay=2,
+):
+    deadline = time.time() + timeout
+    while time.time() <= deadline:
+        parsed_containers = fetch_containers(user, app_name)
+        if parsed_containers:
+            if all(
+                parsed_containers.get(container_name, {}).get("ssm_target")
+                for container_name in expected_container_names
+            ):
+                return parsed_containers
+        time.sleep(delay)
+    return None
+
+
+def has_tty_container(ecs_manifest):
+    containers = ecs_manifest.task_definition.containers
+    return any(container.tty is True for container in containers)
 
 
 def step_idle_keyboard():
@@ -203,8 +245,11 @@ def step_bring_up_stack(
     show_docker_logs,
     run,
     file_name,
+    wait_for_completion=True,
 ):
     print()
+    stack_operation_submitted = False
+    is_stack_created = None
     if has_ecs_file_changed(cache_settings, file_name) or force_redeployment:
         step_import_aws_cdk()
         step_docker_build_and_push(
@@ -219,10 +264,13 @@ def step_bring_up_stack(
             show_docker_logs,
             run,
         )
-        step_create_or_update_stack(stack_name, force_redeployment)
+        is_stack_created, stack_operation_submitted = step_create_or_update_stack(
+            stack_name, force_redeployment, wait_for_completion
+        )
         save_hash(aws_account, file_name)
     else:
         print(f"{Color.YELLOW}No updates are to be performed.{Color.END}")
+    return is_stack_created, stack_operation_submitted
 
 
 def action_run(
@@ -243,7 +291,7 @@ def action_run(
     azs = cache_settings["azs"]
     stack_name = f"{user}-{app_name}"
 
-    step_bring_up_stack(
+    is_stack_created, stack_operation_submitted = step_bring_up_stack(
         cache_settings,
         no_docker_build,
         ecs_manifest,
@@ -258,8 +306,18 @@ def action_run(
         show_docker_logs,
         run=True,
         file_name=file_name,
+        wait_for_completion=False,
     )
-    parsed_containers = fetch_containers(user, app_name)
+    expected_container_names = [
+        container.name for container in ecs_manifest.task_definition.containers
+    ]
+    parsed_containers = step_fetch_accessible_containers(
+        user, app_name, expected_container_names
+    )
+    if parsed_containers is None:
+        if stack_operation_submitted:
+            step_wait_for_stack_operation(stack_name, is_stack_created)
+        parsed_containers = fetch_containers(user, app_name)
     print()
     create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers)
     step_idle_keyboard()
@@ -290,7 +348,7 @@ def action_dev(
     azs = cache_settings["azs"]
     stack_name = f"{user}-{app_name}"
 
-    step_bring_up_stack(
+    is_stack_created, stack_operation_submitted = step_bring_up_stack(
         cache_settings,
         no_docker_build,
         ecs_manifest,
@@ -305,6 +363,7 @@ def action_dev(
         show_docker_logs,
         run=False,
         file_name=file_name,
+        wait_for_completion=False,
     )
     if ecs_manifest.load_balancer:
         load_balancer_port = ecs_manifest.load_balancer.listener_port
@@ -314,7 +373,19 @@ def action_dev(
             "Your service is accessible on this URL:"
             f" http://{load_balancer_dns}:{load_balancer_port}"
         )
-    parsed_containers = fetch_containers(user, app_name)
+    expected_container_names = [
+        container.name for container in ecs_manifest.task_definition.containers
+    ]
+    has_tty = has_tty_container(ecs_manifest)
+    parsed_containers = step_fetch_accessible_containers(
+        user, app_name, expected_container_names
+    )
+    waited_for_stack_operation = False
+    if parsed_containers is None and stack_operation_submitted:
+        step_wait_for_stack_operation(stack_name, is_stack_created)
+        waited_for_stack_operation = True
+    if parsed_containers is None:
+        parsed_containers = fetch_containers(user, app_name)
     print()
     create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers)
     if ecs_manifest.copy_method == "nc":
@@ -336,13 +407,17 @@ def action_dev(
         event_handler.synchronize()
         time.sleep(0.1)
 
-    found_tty = execute_command(
-        ecs_manifest,
-        parsed_containers,
-        aws_region,
-        aws_account,
-    )
+    found_tty = False
+    if has_tty:
+        found_tty = execute_command(
+            ecs_manifest,
+            parsed_containers,
+            aws_region,
+            aws_account,
+        )
 
+    if not has_tty and stack_operation_submitted and not waited_for_stack_operation:
+        step_wait_for_stack_operation(stack_name, is_stack_created)
     if not found_tty:
         step_idle_keyboard()
     step_clean_exit()

@@ -48,10 +48,11 @@ def convert_containers_to_dict(containers):
     for container in containers:
         container_name = container["name"]
         # We give him a target id so it's easier to use it with ssm start session
-        runtime_id = container["runtimeId"]
-        task_id = runtime_id.split("-")[0]
-        target_id = f"{task_id}_{runtime_id}"
-        container["targetId"] = target_id
+        runtime_id = container.get("runtimeId")
+        if runtime_id:
+            task_id = runtime_id.split("-")[0]
+            target_id = f"{task_id}_{runtime_id}"
+            container["targetId"] = target_id
         parsed_containers[container_name] = container
     return parsed_containers
 
