@@ -5,6 +5,7 @@ import subprocess
 import time
 import boto3
 import signal
+from botocore.exceptions import ClientError
 from watchdog.observers import Observer
 from easyecs.command.event.synchronize_event_handler import (
     SynchronizeEventHandler,
@@ -21,6 +22,42 @@ threads = []
 event_handlers = []
 popen_procs_port_forward = []
 popen_procs_exec_command = []
+
+
+def is_retryable_start_session_error(exc: ClientError) -> bool:
+    error = exc.response.get("Error", {})
+    code = error.get("Code", "")
+    message = error.get("Message", "").lower()
+    return (
+        code
+        in {
+            "TargetNotConnected",
+            "TargetNotConnectedException",
+        }
+        or "not connected" in message
+    )
+
+
+def start_ssm_session(
+    client,
+    target,
+    document_name,
+    parameters,
+    timeout=60,
+    delay=2,
+):
+    deadline = time.time() + timeout
+    while True:
+        try:
+            return client.start_session(
+                Target=target,
+                DocumentName=document_name,
+                Parameters=parameters,
+            )
+        except ClientError as exc:
+            if time.time() >= deadline or not is_retryable_start_session_error(exc):
+                raise
+            time.sleep(delay)
 
 
 def create_port_forwards(ecs_manifest, aws_region, aws_account, parsed_containers):
@@ -72,10 +109,11 @@ def port_forward(
     if container:
         target = container["ssm_target"]
         client = boto3.client("ssm")
-        ssm_response = client.start_session(
-            Target=target,
-            DocumentName="AWS-StartPortForwardingSessionToRemoteHost",
-            Parameters={
+        ssm_response = start_ssm_session(
+            client,
+            target,
+            "AWS-StartPortForwardingSessionToRemoteHost",
+            {
                 "host": ["localhost"],
                 "portNumber": [port_number],
                 "localPortNumber": [local_port_number],
@@ -159,10 +197,11 @@ def execute_command(ecs_manifest, parsed_containers, aws_region, aws_account):
             container_command = container.command
             target = parsed_containers.get(container_name)["ssm_target"]
             parameters_nc_server = {"command": [container_command]}
-            ssm_container = ssm_client.start_session(
-                Target=target,
-                DocumentName="AWS-StartInteractiveCommand",
-                Parameters=parameters_nc_server,
+            ssm_container = start_ssm_session(
+                ssm_client,
+                target,
+                "AWS-StartInteractiveCommand",
+                parameters_nc_server,
             )
             cmd_container = [
                 "session-manager-plugin",
@@ -217,10 +256,11 @@ def run_sshd_command(
             target = parsed_containers.get(container_name)["ssm_target"]
             command_server = [f"/usr/sbin/sshd -D"]  # noqa
             parameters_nc_server = {"command": command_server}
-            ssm_nc_server = client.start_session(
-                Target=target,
-                DocumentName="AWS-StartInteractiveCommand",
-                Parameters=parameters_nc_server,
+            ssm_nc_server = start_ssm_session(
+                client,
+                target,
+                "AWS-StartInteractiveCommand",
+                parameters_nc_server,
             )
             cmd_nc_server = generate_ssm_cmd(
                 ssm_nc_server, aws_region, aws_account, target
@@ -281,10 +321,11 @@ def run_nc_command(
                         done'
                     """]  # noqa
                 parameters_nc_server = {"command": command_server}
-                ssm_nc_server = client.start_session(
-                    Target=target,
-                    DocumentName="AWS-StartInteractiveCommand",
-                    Parameters=parameters_nc_server,
+                ssm_nc_server = start_ssm_session(
+                    client,
+                    target,
+                    "AWS-StartInteractiveCommand",
+                    parameters_nc_server,
                 )
                 cmd_nc_server = generate_ssm_cmd(
                     ssm_nc_server, aws_region, aws_account, target
@@ -305,10 +346,11 @@ def install_netcat_command(target, aws_region, aws_account) -> None:
     commands_server = [["apt update"], ["apt install -y netcat-openbsd"]]
     for command_server in commands_server:
         parameters_nc_server = {"command": command_server}
-        ssm_nc_server = client.start_session(
-            Target=target,
-            DocumentName="AWS-StartInteractiveCommand",
-            Parameters=parameters_nc_server,
+        ssm_nc_server = start_ssm_session(
+            client,
+            target,
+            "AWS-StartInteractiveCommand",
+            parameters_nc_server,
         )
         cmd_nc_server = [
             "session-manager-plugin",
@@ -357,10 +399,11 @@ def install_sshd_client(
                 print(f" - {' '.join(cmd)}")
     for command_server in commands_server:
         parameters_nc_server = {"command": command_server}
-        ssm_nc_server = client.start_session(
-            Target=target,
-            DocumentName="AWS-StartInteractiveCommand",
-            Parameters=parameters_nc_server,
+        ssm_nc_server = start_ssm_session(
+            client,
+            target,
+            "AWS-StartInteractiveCommand",
+            parameters_nc_server,
         )
         cmd_nc_server = [
             "session-manager-plugin",
@@ -383,10 +426,11 @@ def check_nc_command(target, aws_region, aws_account):
     client = boto3.client("ssm")
     command_server = ["which nc"]
     parameters_nc_server = {"command": command_server}
-    ssm_nc_server = client.start_session(
-        Target=target,
-        DocumentName="AWS-StartInteractiveCommand",
-        Parameters=parameters_nc_server,
+    ssm_nc_server = start_ssm_session(
+        client,
+        target,
+        "AWS-StartInteractiveCommand",
+        parameters_nc_server,
     )
     cmd_nc_server = [
         "session-manager-plugin",
@@ -405,10 +449,11 @@ def check_sshd_command(target, aws_region, aws_account):
     client = boto3.client("ssm")
     command_server = ["which sshd"]
     parameters_nc_server = {"command": command_server}
-    ssm_nc_server = client.start_session(
-        Target=target,
-        DocumentName="AWS-StartInteractiveCommand",
-        Parameters=parameters_nc_server,
+    ssm_nc_server = start_ssm_session(
+        client,
+        target,
+        "AWS-StartInteractiveCommand",
+        parameters_nc_server,
     )
     cmd_nc_server = [
         "session-manager-plugin",

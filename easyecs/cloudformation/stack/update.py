@@ -59,9 +59,10 @@ def handle_update_error(
         print(e)
 
 
-def update_stack(stack_name: str, force_redeployment: bool):
+def update_stack(stack_name: str, force_redeployment: bool, wait: bool = True) -> bool:
     """
     Updates a CloudFormation stack with the given name.
+    Returns True when a stack operation was submitted.
     """
     loader = Loader(
         "Updating CloudFormation stack:",
@@ -76,7 +77,10 @@ def update_stack(stack_name: str, force_redeployment: bool):
 
     try:
         update_cloudformation_stack(stack_name, cloudformation_template)
-        wait_for_stack_update(stack_name)
+        if wait:
+            wait_for_stack_update(stack_name)
         loader.stop()
+        return True
     except ClientError as e:
         handle_update_error(e, stack_name, force_redeployment, loader)
+        return False
