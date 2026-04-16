@@ -22,6 +22,7 @@ class EcsFileStatementModel(BaseModel):
 
 class EcsFileRoleModel(BaseModel):
     arn: Optional[str] = None
+    existing_arn_skip_log_policy: Optional[bool] = False
     managed_policies: List[str] = []
     statements: List[EcsFileStatementModel] = []
 
