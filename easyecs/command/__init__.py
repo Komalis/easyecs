@@ -74,11 +74,10 @@ def port_forward(
         client = boto3.client("ssm")
         ssm_response = client.start_session(
             Target=target,
-            DocumentName="AWS-StartPortForwardingSessionToRemoteHost",
+            DocumentName="AWS-StartPortForwardingSession",
             Parameters={
-                "host": ["localhost"],
-                "portNumber": [port_number],
-                "localPortNumber": [local_port_number],
+                "portNumber": [str(port_number)],
+                "localPortNumber": [str(local_port_number)],
             },
         )
         # It has to be done like that, in a new session.
