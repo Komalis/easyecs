@@ -230,31 +230,32 @@ def create_task_role(stack, service_name, ecs_manifest):
             role_arn=ecs_manifest.role.arn,
             mutable=False,
         )
-        ManagedPolicy(
-            stack,
-            "EcsLoggingPolicyTask",
-            statements=[
-                PolicyStatement(
-                    actions=[
-                        "logs:CreateLogStream",
-                        "logs:DescribeLogStreams",
-                        "logs:PutLogEvents",
-                        "logs:DescribeLogGroups",
-                    ],
-                    resources=["*"],
-                ),
-                PolicyStatement(
-                    actions=[
-                        "ssmmessages:CreateControlChannel",
-                        "ssmmessages:CreateDataChannel",
-                        "ssmmessages:OpenControlChannel",
-                        "ssmmessages:OpenDataChannel",
-                    ],
-                    resources=["*"],
-                ),
-            ],
-            roles=[role],
-        )
+        if not ecs_manifest.role.existing_arn_skip_log_policy:
+            ManagedPolicy(
+                stack,
+                "EcsLoggingPolicyTask",
+                statements=[
+                    PolicyStatement(
+                        actions=[
+                            "logs:CreateLogStream",
+                            "logs:DescribeLogStreams",
+                            "logs:PutLogEvents",
+                            "logs:DescribeLogGroups",
+                        ],
+                        resources=["*"],
+                    ),
+                    PolicyStatement(
+                        actions=[
+                            "ssmmessages:CreateControlChannel",
+                            "ssmmessages:CreateDataChannel",
+                            "ssmmessages:OpenControlChannel",
+                            "ssmmessages:OpenDataChannel",
+                        ],
+                        resources=["*"],
+                    ),
+                ],
+                roles=[role],
+            )
         return role
     else:
         role_name = f"{service_name}-task-role"
